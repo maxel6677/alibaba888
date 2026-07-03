@@ -3,237 +3,353 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Rạp Phim Cá Nhân của Tôi</title>
+    <title>Minecraft Pro HTML5</title>
     <style>
-        :root {
-            --bg-color: #121212;
-            --text-color: #ffffff;
-            --accent-color: #ff4757;
-            --card-bg: #1e1e1e;
-        }
-
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: var(--bg-color);
-            color: var(--text-color);
             margin: 0;
-            padding: 20px;
-        }
-
-        .container {
-            max-width: 1000px;
-            margin: 0 auto;
-        }
-
-        h1 {
-            text-align: center;
-            color: var(--accent-color);
-        }
-
-        /* Khung nhập liệu */
-        .input-section {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 30px;
-            background: var(--card-bg);
-            padding: 15px;
-            border-radius: 8px;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
-        }
-
-        input {
-            flex: 1;
-            padding: 12px;
-            border: none;
-            border-radius: 4px;
-            background: #2e2e2e;
-            color: #fff;
-            font-size: 16px;
-        }
-
-        input:focus {
-            outline: 2px solid var(--accent-color);
-        }
-
-        button {
-            padding: 12px 24px;
-            background-color: var(--accent-color);
-            color: white;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            font-weight: bold;
-            font-size: 16px;
-            transition: 0.2s;
-        }
-
-        button:hover {
-            background-color: #ff6b81;
-        }
-
-        /* Danh sách Video */
-        .video-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(450px, 1fr));
-            gap: 20px;
-        }
-
-        @media (max-width: 500px) {
-            .video-grid {
-                grid-template-columns: 1fr;
-            }
-        }
-
-        .video-card {
-            background: var(--card-bg);
-            border-radius: 8px;
             overflow: hidden;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
-            display: flex;
-            flex-direction: column;
+            background-color: #87CEEB;
+            font-family: 'Segoe UI', sans-serif;
         }
-
-        .video-wrapper {
-            position: relative;
-            padding-bottom: 56.25%; /* Tỷ lệ 16:9 */
-            height: 0;
-            background: #000;
-        }
-
-        .video-wrapper iframe, .video-wrapper video {
+        #crosshair {
             position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            border: none;
+            top: 50%;
+            left: 50%;
+            width: 10px;
+            height: 10px;
+            transform: translate(-50%, -50%);
+            color: white;
+            font-size: 24px;
+            user-select: none;
+            pointer-events: none;
         }
-
-        .video-info {
+        #instructions {
+            position: absolute;
+            bottom: 100px;
+            left: 20px;
+            color: white;
+            background: rgba(0,0,0,0.6);
             padding: 15px;
+            border-radius: 5px;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+        /* ---- THANH VẬT PHẨM (HOTBAR) ---- */
+        #hotbar {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
             display: flex;
-            justify-content: space-between;
+            background: rgba(0, 0, 0, 0.5);
+            padding: 4px;
+            border: 4px solid #333;
+            border-radius: 2px;
+            gap: 4px;
+        }
+        .slot {
+            width: 50px;
+            height: 50px;
+            border: 3px solid #555;
+            background: rgba(255, 255, 255, 0.1);
+            display: flex;
+            justify-content: center;
             align-items: center;
+            position: relative;
+            cursor: pointer;
         }
-
-        .delete-btn {
-            background-color: #555;
-            padding: 6px 12px;
-            font-size: 13px;
+        .slot.selected {
+            border-color: #fff;
+            background: rgba(255, 255, 255, 0.3);
         }
-
-        .delete-btn:hover {
-            background-color: #e22222;
+        .icon {
+            width: 35px;
+            height: 35px;
+            border-radius: 3px;
         }
+        .slot-num {
+            position: absolute;
+            top: 2px;
+            left: 4px;
+            color: #aaa;
+            font-size: 11px;
+            font-weight: bold;
+        }
+        /* Màu icon tượng trưng */
+        .icon-grass { background: #559933; }
+        .icon-dirt { background: #866043; }
+        .icon-stone { background: #808080; }
+        .icon-wood { background: #a05a2c; }
+        .icon-glass { background: rgba(173, 216, 230, 0.7); border: 1px solid #fff; }
     </style>
 </head>
 <body>
 
-    <div class="container">
-        <h1>🎬 Hộp Lưu Trữ Video Cá Nhân</h1>
-        
-        <div class="input-section">
-            <input type="text" id="videoLink" placeholder="Dán link YouTube hoặc link file .mp4 trực tiếp vào đây...">
-            <button onclick="addVideo()">Thêm Video</button>
-        </div>
-
-        <div class="video-grid" id="videoContainer"></div>
+    <div id="crosshair">+</div>
+    <div id="instructions">
+        <strong>Điều khiển:</strong><br>
+        - WASD / Mũi tên: Di chuyển<br>
+        - <strong>Space</strong>: Nhảy / Bay lên (nếu đang bay)<br>
+        - <strong>Shift trái</strong>: Rón rén / Hạ độ cao (nếu đang bay)<br>
+        - <strong>Phím F</strong>: Bật/Tắt chế độ Bay (Fly mode)<br>
+        - Phím <strong>1, 2, 3, 4, 5</strong>: Chọn khối xây<br>
+        - Chuột trái: Phá khối | Chuột phải: Đặt khối
     </div>
 
+    <div id="hotbar">
+        <div class="slot selected" data-index="0"><span class="slot-num">1</span><div class="icon icon-grass"></div></div>
+        <div class="slot" data-index="1"><span class="slot-num">2</span><div class="icon icon-dirt"></div></div>
+        <div class="slot" data-index="2"><span class="slot-num">3</span><div class="icon icon-stone"></div></div>
+        <div class="slot" data-index="3"><span class="slot-num">4</span><div class="icon icon-wood"></div></div>
+        <div class="slot" data-index="4"><span class="slot-num">5</span><div class="icon icon-glass"></div></div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/PointerLockControls.js"></script>
+
     <script>
-        // Tự động tải danh sách video cũ từ bộ nhớ trình duyệt khi mở trang
-        document.addEventListener("DOMContentLoaded", loadVideos);
+        // --- 1. SETUP THẾ GIỚI ---
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x87CEEB);
+        scene.fog = new THREE.FogExp2(0x87CEEB, 0.015);
 
-        function addVideo() {
-            const input = document.getElementById("videoLink");
-            const url = input.value.trim();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
 
-            if (!url) {
-                alert("Vui lòng dán một đường link!");
-                return;
-            }
+        const ambientLight = new THREE.AmbientLight(0xcccccc, 0.5);
+        scene.add(ambientLight);
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 0.7);
+        directionalLight.position.set(20, 40, 20);
+        scene.add(directionalLight);
 
-            // Lấy danh sách hiện tại từ LocalStorage
-            let videoList = JSON.parse(localStorage.getItem("myVideos")) || [];
-            
-            // Thêm link mới vào danh sách
-            videoList.push(url);
-            
-            // Lưu lại vào LocalStorage
-            localStorage.setItem("myVideos", JSON.stringify(videoList));
+        // --- 2. HỆ THỐNG VẬT PHẨM (HOTBAR) ---
+        const materialKeys = ['grass', 'dirt', 'stone', 'wood', 'glass'];
+        let selectedSlot = 0;
 
-            // Hiển thị ra màn hình
-            renderVideo(url, videoList.length - 1);
-
-            // Xóa text ở ô nhập liệu
-            input.value = "";
-        }
-
-        function loadVideos() {
-            let videoList = JSON.parse(localStorage.getItem("myVideos")) || [];
-            videoList.forEach((url, index) => {
-                renderVideo(url, index);
+        function selectSlot(index) {
+            selectedSlot = index;
+            document.querySelectorAll('.slot').forEach((slot, i) => {
+                if(i === index) slot.classList.add('selected');
+                else slot.classList.remove('selected');
             });
         }
 
-        // Hàm xử lý để biến đổi link thành khung xem video (Embed)
-        function renderVideo(url, index) {
-            const container = document.getElementById("videoContainer");
-            let videoElement = "";
+        // --- 3. BỘ ĐIỀU KHIỂN & DI CHUYỂN NÂNG CAO ---
+        const controls = new THREE.PointerLockControls(camera, document.body);
+        document.body.addEventListener('click', () => { controls.lock(); });
+        scene.add(controls.getObject());
 
-            // 1. Xử lý nếu là link YouTube thông thường hoặc dạng rút gọn (youtu.be)
-            if (url.includes("youtube.com") || url.includes("youtu.be")) {
-                let videoId = "";
-                if (url.includes("youtube.com/watch?v=")) {
-                    videoId = url.split("v=")[1].split("&")[0];
-                } else if (url.includes("youtu.be/")) {
-                    videoId = url.split("youtu.be/")[1].split("?")[0];
-                } else if (url.includes("youtube.com/embed/")) {
-                    videoId = url.split("embed/")[1].split("?")[0];
+        const move = { forward: false, backward: false, left: false, right: false, jump: false, sneak: false };
+        let isFlying = false; 
+        let canJump = true;
+        const playerHeight = 1.8; // Chiều cao mắt người chơi
+
+        const velocity = new THREE.Vector3();
+        const direction = new THREE.Vector3();
+
+        const onKeyDown = (e) => {
+            switch (e.code) {
+                case 'KeyW': case 'ArrowUp': move.forward = true; break;
+                case 'KeyS': case 'ArrowDown': move.backward = true; break;
+                case 'KeyA': case 'ArrowLeft': move.left = true; break;
+                case 'KeyD': case 'ArrowRight': move.right = true; break;
+                case 'Space': move.jump = true; break;
+                case 'ShiftLeft': move.sneak = true; break;
+                case 'KeyF': // Nhấn F để đổi chế độ bay
+                    isFlying = !isFlying;
+                    if (isFlying) velocity.y = 0; // Khóa rơi tự do khi bay
+                    break;
+                case 'Digit1': selectSlot(0); break;
+                case 'Digit2': selectSlot(1); break;
+                case 'Digit3': selectSlot(2); break;
+                case 'Digit4': selectSlot(3); break;
+                case 'Digit5': selectSlot(4); break;
+            }
+        };
+
+        const onKeyUp = (e) => {
+            switch (e.code) {
+                case 'KeyW': case 'ArrowUp': move.forward = false; break;
+                case 'KeyS': case 'ArrowDown': move.backward = false; break;
+                case 'KeyA': case 'ArrowLeft': move.left = false; break;
+                case 'KeyD': case 'ArrowRight': move.right = false; break;
+                case 'Space': move.jump = false; break;
+                case 'ShiftLeft': move.sneak = false; break;
+            }
+        };
+
+        document.addEventListener('keydown', onKeyDown);
+        document.addEventListener('keyup', onKeyUp);
+
+        // --- 4. KHỞI TẠO MAP KHỐI ---
+        const worldSize = 32;
+        const blocks = [];
+        const geometry = new THREE.BoxGeometry(1, 1, 1);
+
+        const materials = {
+            grass: new THREE.MeshLambertMaterial({ color: 0x559933 }),
+            dirt: new THREE.MeshLambertMaterial({ color: 0x866043 }),
+            stone: new THREE.MeshLambertMaterial({ color: 0x808080 }),
+            wood: new THREE.MeshLambertMaterial({ color: 0xa05a2c }),
+            glass: new THREE.MeshLambertMaterial({ color: 0xadd8e6, transparent: true, opacity: 0.6 })
+        };
+
+        // Tạo địa hình cơ bản
+        for (let x = 0; x < worldSize; x++) {
+            for (let z = 0; z < worldSize; z++) {
+                const height = Math.floor(Math.sin(x * 0.15) * Math.cos(z * 0.15) * 2) + 4;
+                for (let y = 0; y < height; y++) {
+                    let mat = materials.dirt;
+                    if (y === height - 1) mat = materials.grass;
+                    else if (y < height - 3) mat = materials.stone;
+
+                    const block = new THREE.Mesh(geometry, mat);
+                    block.position.set(x - worldSize/2, y, z - worldSize/2);
+                    scene.add(block);
+                    blocks.push(block);
                 }
-                
-                videoElement = `<iframe src="https://www.youtube.com/embed/${videoId}" allowfullscreen></iframe>`;
-            } 
-            // 2. Xử lý nếu là link file video trực tiếp (đuôi .mp4, .webm, .ogg)
-            else if (url.match(/\.(mp4|webm|ogg)($|\?)/i) || url.includes("drive.google.com")) {
-                videoElement = `<video src="${url}" controls></video>`;
-            } 
-            // 3. Nếu là link khác không hỗ trợ nhúng thẳng, dùng iframe tạm thời
-            else {
-                videoElement = `<iframe src="${url}"></iframe>`;
+            }
+        }
+
+        camera.position.set(0, 10, 0);
+
+        // --- 5. TƯƠNG TÁC ĐẬP / ĐẶT KHỐI ---
+        const raycaster = new THREE.Raycaster();
+        const mouse = new THREE.Vector2(0, 0);
+
+        window.addEventListener('pointerdown', (e) => {
+            if (!controls.isLocked) return;
+
+            raycaster.setFromCamera(mouse, camera);
+            const intersects = raycaster.intersectObjects(blocks);
+
+            if (intersects.length > 0) {
+                const intersect = intersects[0];
+
+                if (e.button === 0) { // Chuột trái: Phá
+                    scene.remove(intersect.object);
+                    const index = blocks.indexOf(intersect.object);
+                    if (index > -1) blocks.splice(index, 1);
+                } 
+                else if (e.button === 2) { // Chuột phải: Đặt
+                    const position = new THREE.Vector3()
+                        .copy(intersect.point)
+                        .add(intersect.face.normal.clone().multiplyScalar(0.5))
+                        .floor()
+                        .addScalar(0.5);
+
+                    const currentMatKey = materialKeys[selectedSlot];
+                    const newBlock = new THREE.Mesh(geometry, materials[currentMatKey]);
+                    newBlock.position.copy(position);
+                    scene.add(newBlock);
+                    blocks.push(newBlock);
+                }
+            }
+        });
+
+        window.addEventListener('contextmenu', e => e.preventDefault());
+
+        // --- 6. VẬT LÝ VÀ VÒNG LẶP DI CHUYỂN NÂNG CAO ---
+        const clock = new THREE.Clock();
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            if (controls.isLocked) {
+                const delta = clock.getDelta();
+
+                // 1. Giảm vận tốc dần theo thời gian (Ma sát)
+                velocity.x -= velocity.x * 10.0 * delta;
+                velocity.z -= velocity.z * 10.0 * delta;
+                if (isFlying) {
+                    velocity.y -= velocity.y * 10.0 * delta; // Ma sát trục dọc khi bay
+                } else {
+                    velocity.y -= 9.8 * 3.0 * delta; // Trọng lực khi ĐI BỘ (G = 9.8m/s^2)
+                }
+
+                // 2. Tốc độ dựa trên trạng thái (Rón rén vs Bình thường)
+                let currentSpeed = 40.0;
+                if (move.sneak && !isFlying) {
+                    currentSpeed = 15.0; // Đi rón rén chậm lại
+                }
+
+                // Hướng ngang (X, Z)
+                direction.z = Number(move.forward) - Number(move.backward);
+                direction.x = Number(move.right) - Number(move.left);
+                direction.normalize();
+
+                if (move.forward || move.backward) velocity.z -= direction.z * currentSpeed * delta;
+                if (move.left || move.right) velocity.x -= direction.x * currentSpeed * delta;
+
+                // 3. Xử lý logic BAY hoặc NHẢY/HẠ THẤP
+                if (isFlying) {
+                    // Logic khi đang bay
+                    if (move.jump) velocity.y += 30.0 * delta; // Bay lên
+                    if (move.sneak) velocity.y -= 30.0 * delta; // Bay xuống
+                } else {
+                    // Logic khi đi bộ (Nhảy)
+                    if (move.jump && canJump) {
+                        velocity.y = 11.0; // Lực nhảy lên
+                        canJump = false;
+                    }
+                }
+
+                // 4. Áp dụng di chuyển ngang trước
+                controls.moveRight(-velocity.x * delta);
+                controls.moveForward(-velocity.z * delta);
+
+                // 5. Tính toán va chạm mặt đất đơn giản (để đứng được trên block và đáp xuống)
+                let playerPos = controls.getObject().position;
+                playerPos.y += velocity.y * delta; // Di chuyển trục dọc
+
+                // Kiểm tra xem bên dưới chân có khối nào không
+                let isOnGround = false;
+                for (let i = 0; i < blocks.length; i++) {
+                    const block = blocks[i];
+                    // Nếu người chơi đang đứng trên phạm vi bề mặt của khối
+                    if (Math.abs(playerPos.x - block.position.x) < 0.6 &&
+                        Math.abs(playerPos.z - block.position.z) < 0.6) {
+                        
+                        // Chạm mặt trên của khối
+                        const groundLevel = block.position.y + 0.5 + playerHeight;
+                        if (playerPos.y <= groundLevel && playerPos.y > groundLevel - 1.0) {
+                            if (!isFlying) {
+                                playerPos.y = groundLevel;
+                                velocity.y = 0;
+                                isOnGround = true;
+                                canJump = true;
+                            }
+                            break;
+                        }
+                    }
+                }
+
+                // Giới hạn không cho rơi xuống vực vô tận
+                if (playerPos.y < -10) {
+                    playerPos.set(0, 10, 0);
+                    velocity.set(0, 0, 0);
+                }
+
+                // Hạ thấp camera một chút khi rón rén (Tạo hiệu ứng cúi người)
+                if (move.sneak && !isFlying && isOnGround) {
+                    camera.position.y = -0.3; // Thụt camera xuống so với gốc mắt
+                } else {
+                    camera.position.y = 0;
+                }
             }
 
-            // Tạo thẻ card chứa video
-            const card = document.createElement("div");
-            card.className = "video-card";
-            card.id = `video-${index}`;
-            card.innerHTML = `
-                <div class="video-wrapper">
-                    ${videoElement}
-                </div>
-                <div class="video-info">
-                    <span style="font-size: 12px; color: #aaa; word-break: break-all;">${url.substring(0, 40)}...</span>
-                    <button class="delete-btn" onclick="deleteVideo(${index})">Xóa</button>
-                </div>
-            `;
-
-            container.appendChild(card);
+            renderer.render(scene, camera);
         }
 
-        // Hàm xóa video
-        function deleteVideo(index) {
-            let videoList = JSON.parse(localStorage.getItem("myVideos")) || [];
-            
-            // Xóa phần tử khỏi mảng
-            videoList.splice(index, 1);
-            
-            // Cập nhật lại LocalStorage
-            localStorage.setItem("myVideos", JSON.stringify(videoList));
-            
-            // Tải lại danh sách trên giao diện
-            document.getElementById("videoContainer").innerHTML = "";
-            loadVideos();
-        }
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        animate();
     </script>
 </body>
 </html>
