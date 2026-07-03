@@ -3,147 +3,112 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ponos Loading Screen</title>
+    <title>Ponos Loading</title>
     <style>
-        /* Giao diện nền đen toàn màn hình */
         body {
             margin: 0;
             padding: 0;
-            background-color: #000000;
+            background-color: #000000; /* Nền đen */
             width: 100vw;
             height: 100vh;
             display: flex;
+            flex-direction: column;
             justify-content: center;
             align-items: center;
             overflow: hidden;
             font-family: sans-serif;
         }
 
-        /* Khung chứa toàn bộ màn hình Loading */
-        #loadingContainer {
+        /* 1. Ảnh Ponos chính giữa */
+        #myImage {
+            max-width: 400px;
+            margin-bottom: 50px;
+        }
+
+        /* 2. Khung chứa thanh loading và chữ */
+        #loadingWrapper {
+            width: 80%;
+            max-width: 500px;
             display: flex;
             flex-direction: column;
             align-items: center;
-            width: 100%;
-            max-width: 600px; /* Giới hạn chiều rộng thanh loading vừa vặn */
-            padding: 20px;
-            box-sizing: border-box;
         }
 
-        /* Định dạng ảnh logo */
-        #myImage {
-            max-width: 250px; /* Điều chỉnh kích thước logo cho cân đối */
-            height: auto;
-            object-fit: contain;
-            margin-bottom: 40px; /* Khoảng cách giữa logo và thanh loading */
-        }
-
-        /* Khung thanh loading xám bên dưới */
         .progress-bar-container {
             width: 100%;
-            height: 6px;
-            background-color: #333333; /* Màu xám nền */
-            border-radius: 3px;
+            height: 4px;
+            background-color: #333;
+            border-radius: 2px;
             overflow: hidden;
-            margin-bottom: 15px;
         }
 
-        /* Thanh màu vàng chạy tăng dần */
         .progress-bar-fill {
             height: 100%;
             width: 0%;
-            background-color: #f39c12; /* Màu vàng cam giống ảnh */
-            /* Chạy đều từ 0% đến 100% trong đúng 6 giây */
-            animation: fillProgress 6s linear forwards; 
+            background-color: #f39c12; /* Màu vàng */
+            animation: fillProgress 6s linear forwards;
         }
 
-        /* Hiệu ứng thanh vàng tăng dần */
         @keyframes fillProgress {
             to { width: 100%; }
         }
 
-        /* Khung chứa chữ Loading và ô vuông */
         .loading-status {
+            margin-top: 15px;
             display: flex;
             align-items: center;
-            gap: 8px;
-            color: #ffffff;
-            font-size: 16px;
-            letter-spacing: 1px;
+            gap: 10px;
+            color: white;
+            font-size: 14px;
         }
 
-        /* Khung chứa 6 ô vuông */
-        .squares-container {
+        /* 3. 6 ô vuông chạy qua lại */
+        .squares {
             display: flex;
             gap: 4px;
-            position: relative;
-            width: 70px; /* Chiều rộng đủ để các ô vuông di chuyển qua lại */
-            height: 10px;
-            align-items: center;
         }
-
-        /* Định dạng chung cho mỗi ô vuông */
-        .square {
+        .sq {
             width: 8px;
             height: 8px;
-            background-color: #444; /* Màu mặc định khi chưa có đèn chạy qua */
-            border-radius: 1px;
-            /* Tạo hiệu ứng chuyển động qua lại liên tục */
-            animation: lightUp 1.2s infinite ease-in-out;
+            background: #555;
+            animation: blink 1s infinite;
         }
+        .sq:nth-child(1) { animation-delay: 0.1s; }
+        .sq:nth-child(2) { animation-delay: 0.2s; }
+        .sq:nth-child(3) { animation-delay: 0.3s; }
+        .sq:nth-child(4) { animation-delay: 0.4s; }
+        .sq:nth-child(5) { animation-delay: 0.5s; }
+        .sq:nth-child(6) { animation-delay: 0.6s; }
 
-        /* Tạo độ trễ (delay) cho từng ô để tạo hiệu ứng gợn sóng qua lại */
-        .square:nth-child(1) { animation-delay: 0.0s; }
-        .square:nth-child(2) { animation-delay: 0.15s; }
-        .square:nth-child(3) { animation-delay: 0.3s; }
-        .square:nth-child(4) { animation-delay: 0.45s; }
-        .square:nth-child(5) { animation-delay: 0.6s; }
-        .square:nth-child(6) { animation-delay: 0.75s; }
-
-        /* Hiệu ứng ô vuông sáng trắng rồi mờ lại giống như đang di chuyển */
-        @keyframes lightUp {
-            0%, 100% {
-                background-color: #444;
-            }
-            50% {
-                background-color: #ffffff; /* Sáng trắng lên ở giữa chu kỳ */
-            }
+        @keyframes blink {
+            50% { background: white; }
         }
     </style>
 </head>
 <body>
 
-    <div id="loadingContainer">
-        <img id="myImage" src="44145.webp" alt="Ponos Logo">
+    <!-- Logo chính giữa màn hình -->
+    <img id="myImage" src="maxresdefault.jpg" alt="Ponos">
 
+    <!-- Thanh loading bên dưới -->
+    <div id="loadingWrapper">
         <div class="progress-bar-container">
             <div class="progress-bar-fill"></div>
         </div>
-
         <div class="loading-status">
             <span>Loading</span>
-            <div class="squares-container">
-                <div class="square"></div>
-                <div class="square"></div>
-                <div class="square"></div>
-                <div class="square"></div>
-                <div class="square"></div>
-                <div class="square"></div>
+            <div class="squares">
+                <div class="sq"></div><div class="sq"></div><div class="sq"></div>
+                <div class="sq"></div><div class="sq"></div><div class="sq"></div>
             </div>
         </div>
     </div>
 
     <script>
-        // Chờ trang tải xong sẽ đếm ngược ẩn toàn bộ màn hình loading
-        window.addEventListener('DOMContentLoaded', () => {
-            const container = document.getElementById('loadingContainer');
-            
-            // Đúng 6 giây (6000ms) sau, ẩn toàn bộ cụm loading đi, chỉ còn màn hình đen
-            setTimeout(() => {
-                container.style.display = 'none'; 
-            }, 6000);
-        });
+        // Sau 6 giây toàn bộ màn hình sẽ ẩn đi
+        setTimeout(() => {
+            document.body.innerHTML = ''; 
+        }, 6000);
     </script>
-
 </body>
 </html>
