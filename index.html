@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Trang web tự động ẩn ảnh</title>
+    <title>Ponos Loading Screen</title>
     <style>
         /* Giao diện nền đen toàn màn hình */
         body {
@@ -16,29 +16,131 @@
             justify-content: center;
             align-items: center;
             overflow: hidden;
+            font-family: sans-serif;
         }
 
-        /* Định dạng ảnh căn chính giữa màn hình */
+        /* Khung chứa toàn bộ màn hình Loading */
+        #loadingContainer {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 100%;
+            max-width: 600px; /* Giới hạn chiều rộng thanh loading vừa vặn */
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        /* Định dạng ảnh logo */
         #myImage {
-            max-width: 100%;
-            max-height: 100%;
+            max-width: 250px; /* Điều chỉnh kích thước logo cho cân đối */
+            height: auto;
             object-fit: contain;
-            transition: opacity 0.5s ease; /* Hiệu ứng mờ dần khi ẩn (nếu muốn) */
+            margin-bottom: 40px; /* Khoảng cách giữa logo và thanh loading */
+        }
+
+        /* Khung thanh loading xám bên dưới */
+        .progress-bar-container {
+            width: 100%;
+            height: 6px;
+            background-color: #333333; /* Màu xám nền */
+            border-radius: 3px;
+            overflow: hidden;
+            margin-bottom: 15px;
+        }
+
+        /* Thanh màu vàng chạy tăng dần */
+        .progress-bar-fill {
+            height: 100%;
+            width: 0%;
+            background-color: #f39c12; /* Màu vàng cam giống ảnh */
+            /* Chạy đều từ 0% đến 100% trong đúng 6 giây */
+            animation: fillProgress 6s linear forwards; 
+        }
+
+        /* Hiệu ứng thanh vàng tăng dần */
+        @keyframes fillProgress {
+            to { width: 100%; }
+        }
+
+        /* Khung chứa chữ Loading và ô vuông */
+        .loading-status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: #ffffff;
+            font-size: 16px;
+            letter-spacing: 1px;
+        }
+
+        /* Khung chứa 6 ô vuông */
+        .squares-container {
+            display: flex;
+            gap: 4px;
+            position: relative;
+            width: 70px; /* Chiều rộng đủ để các ô vuông di chuyển qua lại */
+            height: 10px;
+            align-items: center;
+        }
+
+        /* Định dạng chung cho mỗi ô vuông */
+        .square {
+            width: 8px;
+            height: 8px;
+            background-color: #444; /* Màu mặc định khi chưa có đèn chạy qua */
+            border-radius: 1px;
+            /* Tạo hiệu ứng chuyển động qua lại liên tục */
+            animation: lightUp 1.2s infinite ease-in-out;
+        }
+
+        /* Tạo độ trễ (delay) cho từng ô để tạo hiệu ứng gợn sóng qua lại */
+        .square:nth-child(1) { animation-delay: 0.0s; }
+        .square:nth-child(2) { animation-delay: 0.15s; }
+        .square:nth-child(3) { animation-delay: 0.3s; }
+        .square:nth-child(4) { animation-delay: 0.45s; }
+        .square:nth-child(5) { animation-delay: 0.6s; }
+        .square:nth-child(6) { animation-delay: 0.75s; }
+
+        /* Hiệu ứng ô vuông sáng trắng rồi mờ lại giống như đang di chuyển */
+        @keyframes lightUp {
+            0%, 100% {
+                background-color: #444;
+            }
+            50% {
+                background-color: #ffffff; /* Sáng trắng lên ở giữa chu kỳ */
+            }
         }
     </style>
 </head>
 <body>
 
-    <img id="myImage" src="maxresdefault.jpg" alt="Ponos Logo">
+    <div id="loadingContainer">
+        <img id="myImage" src="44145.webp" alt="Ponos Logo">
+
+        <div class="progress-bar-container">
+            <div class="progress-bar-fill"></div>
+        </div>
+
+        <div class="loading-status">
+            <span>Loading</span>
+            <div class="squares-container">
+                <div class="square"></div>
+                <div class="square"></div>
+                <div class="square"></div>
+                <div class="square"></div>
+                <div class="square"></div>
+                <div class="square"></div>
+            </div>
+        </div>
+    </div>
 
     <script>
-        // Chờ trang web tải xong là đếm ngược ngay
+        // Chờ trang tải xong sẽ đếm ngược ẩn toàn bộ màn hình loading
         window.addEventListener('DOMContentLoaded', () => {
-            const img = document.getElementById('myImage');
+            const container = document.getElementById('loadingContainer');
             
-            // Sau 6 giây (6000 miligiây), ảnh sẽ biến mất
+            // Đúng 6 giây (6000ms) sau, ẩn toàn bộ cụm loading đi, chỉ còn màn hình đen
             setTimeout(() => {
-                img.style.display = 'none'; 
+                container.style.display = 'none'; 
             }, 6000);
         });
     </script>
