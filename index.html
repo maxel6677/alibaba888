@@ -3,220 +3,237 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Minecraft Classic HTML5</title>
+    <title>Rạp Phim Cá Nhân của Tôi</title>
     <style>
+        :root {
+            --bg-color: #121212;
+            --text-color: #ffffff;
+            --accent-color: #ff4757;
+            --card-bg: #1e1e1e;
+        }
+
         body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
             margin: 0;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            text-align: center;
+            color: var(--accent-color);
+        }
+
+        /* Khung nhập liệu */
+        .input-section {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 30px;
+            background: var(--card-bg);
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+        }
+
+        input {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            border-radius: 4px;
+            background: #2e2e2e;
+            color: #fff;
+            font-size: 16px;
+        }
+
+        input:focus {
+            outline: 2px solid var(--accent-color);
+        }
+
+        button {
+            padding: 12px 24px;
+            background-color: var(--accent-color);
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 16px;
+            transition: 0.2s;
+        }
+
+        button:hover {
+            background-color: #ff6b81;
+        }
+
+        /* Danh sách Video */
+        .video-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(450px, 1fr));
+            gap: 20px;
+        }
+
+        @media (max-width: 500px) {
+            .video-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .video-card {
+            background: var(--card-bg);
+            border-radius: 8px;
             overflow: hidden;
-            backgroundColor: #87CEEB; /* Màu bầu trời */
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+            display: flex;
+            flex-direction: column;
         }
-        #crosshair {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            width: 10px;
-            height: 10px;
-            transform: translate(-50%, -50%);
-            color: white;
-            font-family: sans-serif;
-            font-size: 20px;
-            user-select: none;
-            pointer-events: none;
+
+        .video-wrapper {
+            position: relative;
+            padding-bottom: 56.25%; /* Tỷ lệ 16:9 */
+            height: 0;
+            background: #000;
         }
-        #instructions {
+
+        .video-wrapper iframe, .video-wrapper video {
             position: absolute;
-            bottom: 20px;
-            left: 20px;
-            color: white;
-            background: rgba(0,0,0,0.5);
-            padding: 10px;
-            font-family: sans-serif;
-            border-radius: 5px;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+
+        .video-info {
+            padding: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .delete-btn {
+            background-color: #555;
+            padding: 6px 12px;
+            font-size: 13px;
+        }
+
+        .delete-btn:hover {
+            background-color: #e22222;
         }
     </style>
 </head>
 <body>
 
-    <div id="crosshair">+</div>
-    <div id="instructions">
-        <strong>Điều khiển:</strong><br>
-        - Click vào màn hình để khóa chuột (PointerLock)<br>
-        - WASD / Mũi tên: Di chuyển<br>
-        - Chuột: Nhìn xung quanh<br>
-        - Chuột trái: Phá khối | Chuột phải: Đặt khối
+    <div class="container">
+        <h1>🎬 Hộp Lưu Trữ Video Cá Nhân</h1>
+        
+        <div class="input-section">
+            <input type="text" id="videoLink" placeholder="Dán link YouTube hoặc link file .mp4 trực tiếp vào đây...">
+            <button onclick="addVideo()">Thêm Video</button>
+        </div>
+
+        <div class="video-grid" id="videoContainer"></div>
     </div>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/PointerLockControls.js"></script>
-
     <script>
-        // --- 1. THIẾT LẬP BAN ĐẦU ---
-        const scene = new THREE.Scene();
-        scene.background = new THREE.Color(0x87CEEB); // Màu trời lam
-        scene.fog = new THREE.FogExp2(0x87CEEB, 0.015);
+        // Tự động tải danh sách video cũ từ bộ nhớ trình duyệt khi mở trang
+        document.addEventListener("DOMContentLoaded", loadVideos);
 
-        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-        const renderer = new THREE.WebGLRenderer({ antialias: true });
-        renderer.setSize(window.innerWidth, window.innerHeight);
-        renderer.shadowMap.enabled = true;
-        document.body.appendChild(renderer.domElement);
+        function addVideo() {
+            const input = document.getElementById("videoLink");
+            const url = input.value.trim();
 
-        // Ánh sáng
-        const ambientLight = new THREE.AmbientLight(0xcccccc, 0.4);
-        scene.add(ambientLight);
-        const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
-        directionalLight.position.set(20, 40, 20);
-        scene.add(directionalLight);
-
-        // --- 2. BỘ ĐIỀU KHIỂN (CONTROLS) ---
-        const controls = new THREE.PointerLockControls(camera, document.body);
-        
-        // Khóa chuột khi click vào màn hình
-        document.body.addEventListener('click', () => {
-            controls.lock();
-        });
-
-        scene.add(controls.getObject());
-
-        // Trạng thái di chuyển
-        const move = { forward: false, backward: false, left: false, right: false };
-        const velocity = new THREE.Vector3();
-        const direction = new THREE.Vector3();
-
-        const onKeyDown = (e) => {
-            switch (e.code) {
-                case 'KeyW': case 'ArrowUp': move.forward = true; break;
-                case 'KeyS': case 'ArrowDown': move.backward = true; break;
-                case 'KeyA': case 'ArrowLeft': move.left = true; break;
-                case 'KeyD': case 'ArrowRight': move.right = true; break;
+            if (!url) {
+                alert("Vui lòng dán một đường link!");
+                return;
             }
-        };
 
-        const onKeyUp = (e) => {
-            switch (e.code) {
-                case 'KeyW': case 'ArrowUp': move.forward = false; break;
-                case 'KeyS': case 'ArrowDown': move.backward = false; break;
-                case 'KeyA': case 'ArrowLeft': move.left = false; break;
-                case 'KeyD': case 'ArrowRight': move.right = false; break;
-            }
-        };
+            // Lấy danh sách hiện tại từ LocalStorage
+            let videoList = JSON.parse(localStorage.getItem("myVideos")) || [];
+            
+            // Thêm link mới vào danh sách
+            videoList.push(url);
+            
+            // Lưu lại vào LocalStorage
+            localStorage.setItem("myVideos", JSON.stringify(videoList));
 
-        document.addEventListener('keydown', onKeyDown);
-        document.addEventListener('keyup', onKeyUp);
+            // Hiển thị ra màn hình
+            renderVideo(url, videoList.length - 1);
 
-        // --- 3. TẠO THẾ GIỚI (BLOCKS) ---
-        const worldSize = 32; // Kích thước map 32x32
-        const blocks = []; // Lưu trữ các block để tương tác
-        const geometry = new THREE.BoxGeometry(1, 1, 1);
+            // Xóa text ở ô nhập liệu
+            input.value = "";
+        }
 
-        // Màu sắc cơ bản thay cho texture phức tạp
-        const materials = {
-            grass: new THREE.MeshLambertMaterial({ color: 0x559933 }),
-            dirt: new THREE.MeshLambertMaterial({ color: 0x866043 }),
-            stone: new THREE.MeshLambertMaterial({ color: 0x808080 })
-        };
+        function loadVideos() {
+            let videoList = JSON.parse(localStorage.getItem("myVideos")) || [];
+            videoList.forEach((url, index) => {
+                renderVideo(url, index);
+            });
+        }
 
-        // Tạo địa hình đơn giản
-        for (let x = 0; x < worldSize; x++) {
-            for (let z = 0; z < worldSize; z++) {
-                // Tính độ cao ngẫu nhiên nhẹ (nhấp nhô)
-                const height = Math.floor(Math.sin(x * 0.2) * Math.cos(z * 0.2) * 2) + 4;
+        // Hàm xử lý để biến đổi link thành khung xem video (Embed)
+        function renderVideo(url, index) {
+            const container = document.getElementById("videoContainer");
+            let videoElement = "";
+
+            // 1. Xử lý nếu là link YouTube thông thường hoặc dạng rút gọn (youtu.be)
+            if (url.includes("youtube.com") || url.includes("youtu.be")) {
+                let videoId = "";
+                if (url.includes("youtube.com/watch?v=")) {
+                    videoId = url.split("v=")[1].split("&")[0];
+                } else if (url.includes("youtu.be/")) {
+                    videoId = url.split("youtu.be/")[1].split("?")[0];
+                } else if (url.includes("youtube.com/embed/")) {
+                    videoId = url.split("embed/")[1].split("?")[0];
+                }
                 
-                for (let y = 0; y < height; y++) {
-                    let material = materials.dirt;
-                    if (y === height - 1) material = materials.grass;
-                    else if (y < height - 3) material = materials.stone;
-
-                    const block = new THREE.Mesh(geometry, material);
-                    block.position.set(x - worldSize/2, y, z - worldSize/2);
-                    scene.add(block);
-                    blocks.push(block);
-                }
+                videoElement = `<iframe src="https://www.youtube.com/embed/${videoId}" allowfullscreen></iframe>`;
+            } 
+            // 2. Xử lý nếu là link file video trực tiếp (đuôi .mp4, .webm, .ogg)
+            else if (url.match(/\.(mp4|webm|ogg)($|\?)/i) || url.includes("drive.google.com")) {
+                videoElement = `<video src="${url}" controls></video>`;
+            } 
+            // 3. Nếu là link khác không hỗ trợ nhúng thẳng, dùng iframe tạm thời
+            else {
+                videoElement = `<iframe src="${url}"></iframe>`;
             }
+
+            // Tạo thẻ card chứa video
+            const card = document.createElement("div");
+            card.className = "video-card";
+            card.id = `video-${index}`;
+            card.innerHTML = `
+                <div class="video-wrapper">
+                    ${videoElement}
+                </div>
+                <div class="video-info">
+                    <span style="font-size: 12px; color: #aaa; word-break: break-all;">${url.substring(0, 40)}...</span>
+                    <button class="delete-btn" onclick="deleteVideo(${index})">Xóa</button>
+                </div>
+            `;
+
+            container.appendChild(card);
         }
 
-        // Đặt camera ở vị trí trung tâm, trên mặt đất
-        camera.position.set(0, 10, 0);
-
-        // --- 4. ĐẬP VÀ ĐẶT KHỐI (RAYCASTER) ---
-        const raycaster = new THREE.Raycaster();
-        const mouse = new THREE.Vector2(0, 0); // Giữa màn hình
-
-        window.addEventListener('pointerdown', (e) => {
-            if (!controls.isLocked) return;
-
-            // Bắn một tia từ tâm màn hình ra thế giới
-            raycaster.setFromCamera(mouse, camera);
-            const intersects = raycaster.intersectObjects(blocks);
-
-            if (intersects.length > 0) {
-                const intersect = intersects[0];
-
-                // Chuột trái: Phá khối
-                if (e.button === 0) {
-                    scene.remove(intersect.object);
-                    const index = blocks.indexOf(intersect.object);
-                    if (index > -1) blocks.splice(index, 1);
-                }
-                // Chuột phải: Đặt khối
-                else if (e.button === 2) {
-                    // Xác định vị trí dựa trên bề mặt (normal) của khối bị click
-                    const position = new THREE.Vector3()
-                        .copy(intersect.point)
-                        .add(intersect.face.normal.clone().multiplyScalar(0.5))
-                        .floor()
-                        .addScalar(0.5); // Căn giữa grid
-
-                    const newBlock = new THREE.Mesh(geometry, materials.dirt);
-                    newBlock.position.copy(position);
-                    scene.add(newBlock);
-                    blocks.push(newBlock);
-                }
-            }
-        });
-
-        // Chặn menu chuột phải mặc định của trình duyệt
-        window.addEventListener('contextmenu', e => e.preventDefault());
-
-        // --- 5. VÒNG LẶP RENDER (ANIMATION LOOP) ---
-        const clock = new THREE.Clock();
-
-        function animate() {
-            requestAnimationFrame(animate);
-
-            if (controls.isLocked) {
-                const delta = clock.getDelta();
-
-                // Giảm vận tốc (ma sát)
-                velocity.x -= velocity.x * 10.0 * delta;
-                velocity.z -= velocity.z * 10.0 * delta;
-
-                // Xác định hướng di chuyển
-                direction.z = Number(move.forward) - Number(move.backward);
-                direction.x = Number(move.right) - Number(move.left);
-                direction.normalize();
-
-                // Áp dụng tốc độ
-                if (move.forward || move.backward) velocity.z -= direction.z * 40.0 * delta;
-                if (move.left || move.right) velocity.x -= direction.x * 40.0 * delta;
-
-                // Di chuyển camera
-                controls.moveRight(-velocity.x * delta);
-                controls.moveForward(-velocity.z * delta);
-            }
-
-            renderer.render(scene, camera);
+        // Hàm xóa video
+        function deleteVideo(index) {
+            let videoList = JSON.parse(localStorage.getItem("myVideos")) || [];
+            
+            // Xóa phần tử khỏi mảng
+            videoList.splice(index, 1);
+            
+            // Cập nhật lại LocalStorage
+            localStorage.setItem("myVideos", JSON.stringify(videoList));
+            
+            // Tải lại danh sách trên giao diện
+            document.getElementById("videoContainer").innerHTML = "";
+            loadVideos();
         }
-
-        // Tự động điều chỉnh kích thước khi phóng to/thu nhỏ trình duyệt
-        window.addEventListener('resize', () => {
-            camera.aspect = window.innerWidth / window.innerHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
-        });
-
-        animate();
     </script>
 </body>
 </html>
-
