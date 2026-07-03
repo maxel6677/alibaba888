@@ -2,14 +2,17 @@
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Minecraft Pro HTML5</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-select=none">
+    <title>Minecraft Pro HTML5 - Mobile Supported</title>
     <style>
         body {
             margin: 0;
             overflow: hidden;
             background-color: #87CEEB;
             font-family: 'Segoe UI', sans-serif;
+            touch-action: none; /* Ngăn chặn zoom/cuộn mặc định của trình duyệt di động */
+            -webkit-user-select: none;
+            user-select: none;
         }
         #crosshair {
             position: absolute;
@@ -22,6 +25,7 @@
             font-size: 24px;
             user-select: none;
             pointer-events: none;
+            z-index: 10;
         }
         #instructions {
             position: absolute;
@@ -33,7 +37,9 @@
             border-radius: 5px;
             font-size: 14px;
             line-height: 1.5;
+            pointer-events: none;
         }
+        
         /* ---- THANH VẬT PHẨM (HOTBAR) ---- */
         #hotbar {
             position: absolute;
@@ -46,6 +52,7 @@
             border: 4px solid #333;
             border-radius: 2px;
             gap: 4px;
+            z-index: 100;
         }
         .slot {
             width: 50px;
@@ -75,17 +82,75 @@
             font-size: 11px;
             font-weight: bold;
         }
-        /* Màu icon tượng trưng */
         .icon-grass { background: #559933; }
         .icon-dirt { background: #866043; }
         .icon-stone { background: #808080; }
         .icon-wood { background: #a05a2c; }
         .icon-glass { background: rgba(173, 216, 230, 0.7); border: 1px solid #fff; }
+
+        /* ---- GIAO DIỆN MOBILE ---- */
+        #mobile-controls {
+            display: none; /* Chỉ hiện ở chế độ mobile */
+        }
+        /* Vùng Joystick bên trái */
+        #joystick-zone {
+            position: absolute;
+            bottom: 40px;
+            left: 40px;
+            width: 120px;
+            height: 120px;
+            background: rgba(255,255,255,0.2);
+            border-radius: 50%;
+            z-index: 100;
+        }
+        #joystick-stick {
+            position: absolute;
+            top: 35px;
+            left: 35px;
+            width: 50px;
+            height: 50px;
+            background: rgba(255,255,255,0.6);
+            border-radius: 50%;
+        }
+        /* Cụm nút hành động bên phải */
+        #action-buttons {
+            position: absolute;
+            bottom: 40px;
+            right: 40px;
+            display: flex;
+            gap: 20px;
+            z-index: 100;
+        }
+        .btn-mobile {
+            width: 60px;
+            height: 60px;
+            background: rgba(0,0,0,0.5);
+            border: 2px solid white;
+            color: white;
+            border-radius: 50%;
+            font-size: 12px;
+            font-weight: bold;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .btn-mobile:active {
+            background: rgba(255,255,255,0.4);
+        }
     </style>
 </head>
 <body>
 
     <div id="crosshair">+</div>
+
+    <div id="platformMenu" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,.8); display:flex; justify-content:center; align-items:center; z-index:9999;">
+        <div style="background:#333; padding:30px; border-radius:10px; text-align:center; color:white;">
+            <h2>Bạn đang sử dụng nền tảng nào sau đây?</h2>
+            <button onclick="selectPlatform('windows')" style="padding:10px 30px;margin:10px;font-size:18px;cursor:pointer;">Windows</button>
+            <button onclick="selectPlatform('android')" style="padding:10px 30px;margin:10px;font-size:18px;cursor:pointer;">Android</button>
+        </div>
+    </div>
+
     <div id="instructions">
         <strong>Điều khiển:</strong><br>
         - WASD / Mũi tên: Di chuyển<br>
@@ -94,6 +159,17 @@
         - <strong>Phím F</strong>: Bật/Tắt chế độ Bay (Fly mode)<br>
         - Phím <strong>1, 2, 3, 4, 5</strong>: Chọn khối xây<br>
         - Chuột trái: Phá khối | Chuột phải: Đặt khối
+    </div>
+
+    <div id="mobile-controls">
+        <div id="joystick-zone">
+            <div id="joystick-stick"></div>
+        </div>
+        <div id="action-buttons">
+            <div class="btn-mobile" id="btn-sneak">SNEAK</div>
+            <div class="btn-mobile" id="btn-jump">JUMP</div>
+            <div class="btn-mobile" id="btn-fly">FLY</div>
+        </div>
     </div>
 
     <div id="hotbar">
@@ -109,6 +185,22 @@
 
     <script>
         // --- 1. SETUP THẾ GIỚI ---
+        let isMobileMode = false;
+
+        function selectPlatform(platform){
+            if(platform === "android"){
+                isMobileMode = true;
+                document.getElementById("mobile-controls").style.display = "block";
+                document.getElementById("instructions").style.display = "none";
+                initMobileControls(); // Kích hoạt bộ bắt tương tác mobile
+            } else {
+                isMobileMode = false;
+                // Chỉ kích hoạt PointerLock nếu là PC
+                document.body.addEventListener('click', () => { if(!isMobileMode) controls.lock(); });
+            }
+            document.getElementById("platformMenu").style.display = "none";
+        }
+
         const scene = new THREE.Scene();
         scene.background = new THREE.Color(0x87CEEB);
         scene.fog = new THREE.FogExp2(0x87CEEB, 0.015);
@@ -136,20 +228,34 @@
             });
         }
 
+        // Đăng ký sự kiện click/touch chọn ô hotbar (hoạt động tốt trên cả PC & Mobile)
+        document.querySelectorAll('.slot').forEach((slot) => {
+            slot.addEventListener('pointerdown', (e) => {
+                e.stopPropagation(); // Không cho truyền sự kiện ra ngoài làm xoay camera / đặt block
+                const index = parseInt(slot.getAttribute('data-index'));
+                selectSlot(index);
+            });
+        });
+
         // --- 3. BỘ ĐIỀU KHIỂN & DI CHUYỂN NÂNG CAO ---
         const controls = new THREE.PointerLockControls(camera, document.body);
-        document.body.addEventListener('click', () => { controls.lock(); });
         scene.add(controls.getObject());
 
         const move = { forward: false, backward: false, left: false, right: false, jump: false, sneak: false };
         let isFlying = false; 
         let canJump = true;
-        const playerHeight = 1.8; // Chiều cao mắt người chơi
+        const playerHeight = 1.8;
 
         const velocity = new THREE.Vector3();
         const direction = new THREE.Vector3();
 
+        // Biến lưu trữ góc xoay Camera cho Mobile độc lập
+        let mobilePitch = 0;
+        let mobileYaw = 0;
+
+        // Xử lý bàn phím PC
         const onKeyDown = (e) => {
+            if (isMobileMode) return;
             switch (e.code) {
                 case 'KeyW': case 'ArrowUp': move.forward = true; break;
                 case 'KeyS': case 'ArrowDown': move.backward = true; break;
@@ -157,9 +263,9 @@
                 case 'KeyD': case 'ArrowRight': move.right = true; break;
                 case 'Space': move.jump = true; break;
                 case 'ShiftLeft': move.sneak = true; break;
-                case 'KeyF': // Nhấn F để đổi chế độ bay
+                case 'KeyF': 
                     isFlying = !isFlying;
-                    if (isFlying) velocity.y = 0; // Khóa rơi tự do khi bay
+                    if (isFlying) velocity.y = 0;
                     break;
                 case 'Digit1': selectSlot(0); break;
                 case 'Digit2': selectSlot(1); break;
@@ -170,8 +276,9 @@
         };
 
         const onKeyUp = (e) => {
+            if (isMobileMode) return;
             switch (e.code) {
-                case 'KeyW': case 'ArrowUp': move.forward = false; break;
+                case 'KeyW': case 'ArrowUp': move.backward = false; move.forward = false; break; // Sửa lỗi kẹt nút
                 case 'KeyS': case 'ArrowDown': move.backward = false; break;
                 case 'KeyA': case 'ArrowLeft': move.left = false; break;
                 case 'KeyD': case 'ArrowRight': move.right = false; break;
@@ -196,7 +303,6 @@
             glass: new THREE.MeshLambertMaterial({ color: 0xadd8e6, transparent: true, opacity: 0.6 })
         };
 
-        // Tạo địa hình cơ bản
         for (let x = 0; x < worldSize; x++) {
             for (let z = 0; z < worldSize; z++) {
                 const height = Math.floor(Math.sin(x * 0.15) * Math.cos(z * 0.15) * 2) + 4;
@@ -215,25 +321,24 @@
 
         camera.position.set(0, 10, 0);
 
-        // --- 5. TƯƠNG TÁC ĐẬP / ĐẶT KHỐI ---
+        // --- 5. TƯƠNG TÁC ĐẬP / ĐẶT KHỐI (PC MOUSE) ---
         const raycaster = new THREE.Raycaster();
-        const mouse = new THREE.Vector2(0, 0);
+        const mouse = new THREE.Vector2(0, 0); // Giữ tâm màn hình làm hồng tâm Raycast
 
-        window.addEventListener('pointerdown', (e) => {
-            if (!controls.isLocked) return;
-
+        function performInteraction(type) {
+            // Luôn Raycast từ giữa màn hình (nơi có hồng tâm)
             raycaster.setFromCamera(mouse, camera);
             const intersects = raycaster.intersectObjects(blocks);
 
             if (intersects.length > 0) {
                 const intersect = intersects[0];
 
-                if (e.button === 0) { // Chuột trái: Phá
+                if (type === 'break') { // Phá khối
                     scene.remove(intersect.object);
                     const index = blocks.indexOf(intersect.object);
                     if (index > -1) blocks.splice(index, 1);
                 } 
-                else if (e.button === 2) { // Chuột phải: Đặt
+                else if (type === 'place') { // Đặt khối
                     const position = new THREE.Vector3()
                         .copy(intersect.point)
                         .add(intersect.face.normal.clone().multiplyScalar(0.5))
@@ -247,109 +352,130 @@
                     blocks.push(newBlock);
                 }
             }
+        }
+
+        window.addEventListener('pointerdown', (e) => {
+            if (isMobileMode) return; // Bỏ qua xử lý click chuột nếu là mobile
+            if (!controls.isLocked) return;
+
+            if (e.button === 0) performInteraction('break');
+            else if (e.button === 2) performInteraction('place');
         });
 
         window.addEventListener('contextmenu', e => e.preventDefault());
 
-        // --- 6. VẬT LÝ VÀ VÒNG LẶP DI CHUYỂN NÂNG CAO ---
-        const clock = new THREE.Clock();
 
-        function animate() {
-            requestAnimationFrame(animate);
+        // --- 6. LOGIC XỬ LÝ ĐIỀU KHIỂN TRÊN MOBILE ---
+        let joystickActive = false;
+        let joystickStart = {x: 0, y: 0};
+        let moveDirection = {x: 0, y: 0};
 
-            if (controls.isLocked) {
-                const delta = clock.getDelta();
+        let touchStartPos = {x: 0, y: 0};
+        let lastTouchPos = {x: 0, y: 0};
+        let touchActionTimer = null;
+        let isLongPress = false;
+        let lookTouchId = null;
+        let joystickTouchId = null;
 
-                // 1. Giảm vận tốc dần theo thời gian (Ma sát)
-                velocity.x -= velocity.x * 10.0 * delta;
-                velocity.z -= velocity.z * 10.0 * delta;
-                if (isFlying) {
-                    velocity.y -= velocity.y * 10.0 * delta; // Ma sát trục dọc khi bay
-                } else {
-                    velocity.y -= 9.8 * 3.0 * delta; // Trọng lực khi ĐI BỘ (G = 9.8m/s^2)
-                }
+        function initMobileControls() {
+            const joystickZone = document.getElementById('joystick-zone');
+            const joystickStick = document.getElementById('joystick-stick');
 
-                // 2. Tốc độ dựa trên trạng thái (Rón rén vs Bình thường)
-                let currentSpeed = 40.0;
-                if (move.sneak && !isFlying) {
-                    currentSpeed = 15.0; // Đi rón rén chậm lại
-                }
+            // --- Nút hành động ---
+            const btnJump = document.getElementById('btn-jump');
+            const btnSneak = document.getElementById('btn-sneak');
+            const btnFly = document.getElementById('btn-fly');
 
-                // Hướng ngang (X, Z)
-                direction.z = Number(move.forward) - Number(move.backward);
-                direction.x = Number(move.right) - Number(move.left);
-                direction.normalize();
+            btnJump.addEventListener('pointerdown', (e) => { e.stopPropagation(); move.jump = true; });
+            btnJump.addEventListener('pointerup', (e) => { e.stopPropagation(); move.jump = false; });
+            
+            btnSneak.addEventListener('pointerdown', (e) => { e.stopPropagation(); move.sneak = true; });
+            btnSneak.addEventListener('pointerup', (e) => { e.stopPropagation(); move.sneak = false; });
+            
+            btnFly.addEventListener('pointerdown', (e) => { 
+                e.stopPropagation(); 
+                isFlying = !isFlying; 
+                if(isFlying) velocity.y = 0;
+                btnFly.style.background = isFlying ? "rgba(255,255,0,0.6)" : "rgba(0,0,0,0.5)";
+            });
 
-                if (move.forward || move.backward) velocity.z -= direction.z * currentSpeed * delta;
-                if (move.left || move.right) velocity.x -= direction.x * currentSpeed * delta;
+            // --- Quản lý Touch đa điểm trên màn hình ---
+            window.addEventListener('touchstart', (e) => {
+                for (let i = 0; i < e.changedTouches.length; i++) {
+                    let t = e.changedTouches[i];
 
-                // 3. Xử lý logic BAY hoặc NHẢY/HẠ THẤP
-                if (isFlying) {
-                    // Logic khi đang bay
-                    if (move.jump) velocity.y += 30.0 * delta; // Bay lên
-                    if (move.sneak) velocity.y -= 30.0 * delta; // Bay xuống
-                } else {
-                    // Logic khi đi bộ (Nhảy)
-                    if (move.jump && canJump) {
-                        velocity.y = 11.0; // Lực nhảy lên
-                        canJump = false;
+                    // Bỏ qua nếu chạm vào thanh Hotbar hoặc cụm nút hành động công cộng
+                    if(t.clientY > window.innerHeight - 80 && t.clientX > window.innerWidth/2 - 150 && t.clientX < window.innerWidth/2 + 150) continue;
+                    if(t.clientX > window.innerWidth - 240 && t.clientY > window.innerHeight - 120) continue;
+
+                    // 1. Bên Trái: Kích hoạt Joystick
+                    if (t.clientX < window.innerWidth / 2 && joystickTouchId === null) {
+                        joystickTouchId = t.identifier;
+                        joystickActive = true;
+                        // Neo tâm joystick tại vị trí chạm ban đầu hoặc dùng UI cố định
+                        let rect = joystickZone.getBoundingClientRect();
+                        joystickStart = { x: rect.left + 60, y: rect.top + 60 };
+                        continue;
                     }
-                }
 
-                // 4. Áp dụng di chuyển ngang trước
-                controls.moveRight(-velocity.x * delta);
-                controls.moveForward(-velocity.z * delta);
-
-                // 5. Tính toán va chạm mặt đất đơn giản (để đứng được trên block và đáp xuống)
-                let playerPos = controls.getObject().position;
-                playerPos.y += velocity.y * delta; // Di chuyển trục dọc
-
-                // Kiểm tra xem bên dưới chân có khối nào không
-                let isOnGround = false;
-                for (let i = 0; i < blocks.length; i++) {
-                    const block = blocks[i];
-                    // Nếu người chơi đang đứng trên phạm vi bề mặt của khối
-                    if (Math.abs(playerPos.x - block.position.x) < 0.6 &&
-                        Math.abs(playerPos.z - block.position.z) < 0.6) {
+                    // 2. Bên Phải: Vuốt Xoay Camera & Đập/Đặt khối
+                    if (t.clientX >= window.innerWidth / 2 && lookTouchId === null) {
+                        lookTouchId = t.identifier;
+                        touchStartPos = { x: t.clientX, y: t.clientY };
+                        lastTouchPos = { x: t.clientX, y: t.clientY };
                         
-                        // Chạm mặt trên của khối
-                        const groundLevel = block.position.y + 0.5 + playerHeight;
-                        if (playerPos.y <= groundLevel && playerPos.y > groundLevel - 1.0) {
-                            if (!isFlying) {
-                                playerPos.y = groundLevel;
-                                velocity.y = 0;
-                                isOnGround = true;
-                                canJump = true;
-                            }
-                            break;
-                        }
+                        isLongPress = false;
+                        // Nhấn giữ 600ms = Đập Block
+                        touchActionTimer = setTimeout(() => {
+                            isLongPress = true;
+                            performInteraction('break');
+                            // Thao tác rung máy nhẹ tạo cảm giác đập khối nếu thiết bị hỗ trợ
+                            if(navigator.vibrate) navigator.vibrate(50); 
+                        }, 600);
                     }
                 }
+            }, {passive: false});
 
-                // Giới hạn không cho rơi xuống vực vô tận
-                if (playerPos.y < -10) {
-                    playerPos.set(0, 10, 0);
-                    velocity.set(0, 0, 0);
-                }
+            window.addEventListener('touchmove', (e) => {
+                for (let i = 0; i < e.touches.length; i++) {
+                    let t = e.touches[i];
 
-                // Hạ thấp camera một chút khi rón rén (Tạo hiệu ứng cúi người)
-                if (move.sneak && !isFlying && isOnGround) {
-                    camera.position.y = -0.3; // Thụt camera xuống so với gốc mắt
-                } else {
-                    camera.position.y = 0;
-                }
-            }
+                    if (t.identifier === joystickTouchId) {
+                        // Tính toán độ lệch Joystick
+                        let dx = t.clientX - joystickStart.x;
+                        let dy = t.clientY - joystickStart.y;
+                        let dist = Math.sqrt(dx*dx + dy*dy);
+                        let maxDist = 50;
 
-            renderer.render(scene, camera);
-        }
+                        if (dist > maxDist) {
+                            dx = (dx / dist) * maxDist;
+                            dy = (dy / dist) * maxDist;
+                        }
 
-        window.addEventListener('resize', () => {
-            camera.aspect = window.innerWidth / window.innerHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
-        });
+                        joystickStick.style.transform = `translate(${dx}px, ${dy}px)`;
+                        
+                        // Chuyển đổi sang hệ thống di chuyển WASD của game
+                        moveDirection.x = dx / maxDist; // Trục ngang (X)
+                        moveDirection.y = -dy / maxDist; // Trục dọc (Z)
+                    }
 
-        animate();
-    </script>
-</body>
-</html>
+                    if (t.identifier === lookTouchId) {
+                        let dx = t.clientX - lastTouchPos.x;
+                        let dy = t.clientY - lastTouchPos.y;
+
+                        // Nếu ngón tay di chuyển quá xa vị trí ban đầu -> Hủy đếm ngược phá block (Tránh nhầm lẫn khi đang xoay màn hình)
+                        let totalDist = Math.sqrt(Math.pow(t.clientX-touchStartPos.x, 2) + Math.pow(t.clientY-touchStartPos.y, 2));
+                        if (totalDist > 15 && touchActionTimer) {
+                            clearTimeout(touchActionTimer);
+                            touchActionTimer = null;
+                        }
+
+                        // Xoay Camera độc lập cho Mobile
+                        mobileYaw -= dx * 0.005;
+                        mobilePitch -= dy * 0.005;
+                        mobilePitch = Math.max(-Math.PI/2 + 0.05, Math.min(Math.PI/2 - 0.05, mobilePitch));
+
+                        camera.quaternion.setFromEuler(new THREE.Euler(mobilePitch, mobileYaw, 0, 'YXZ'));
+
+                        lastTouchPos = { x: t.clientX, y: t.clientY };
+                    }
