@@ -3,50 +3,58 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ponos Loading</title>
+    <title>Ponos Timeline</title>
     <style>
         body {
             margin: 0;
             padding: 0;
-            background-color: #000000; /* Nền đen */
+            background-color: #000000; /* Nền đen xuyên suốt */
             width: 100vw;
             height: 100vh;
             display: flex;
-            flex-direction: column;
             justify-content: center;
             align-items: center;
             overflow: hidden;
             font-family: sans-serif;
         }
 
-        /* 1. Ảnh Ponos chính giữa */
-        #myImage {
-            max-width: 400px;
-            margin-bottom: 50px;
+        /* --- Giai đoạn 1: Ảnh Ponos xuất hiện trước --- */
+        #ponosImage {
+            display: block; /* Hiện đầu tiên */
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
         }
 
-        /* 2. Khung chứa thanh loading và chữ */
+        /* --- Giai đoạn 2: Giao diện Loading xuất hiện sau --- */
         #loadingWrapper {
+            display: none; /* Lúc đầu ẩn đi */
             width: 80%;
             max-width: 500px;
-            display: flex;
             flex-direction: column;
             align-items: center;
         }
 
+        /* Thanh chứa - góc vuông hoàn toàn */
         .progress-bar-container {
             width: 100%;
-            height: 4px;
-            background-color: #333;
-            border-radius: 2px;
+            height: 6px;
+            background-color: #222222;
+            border-radius: 0px; /* Góc vuông */
             overflow: hidden;
         }
 
+        /* Thanh chạy màu vàng tươi - góc vuông */
         .progress-bar-fill {
             height: 100%;
             width: 0%;
-            background-color: #f39c12; /* Màu vàng */
-            animation: fillProgress 6s linear forwards;
+            background-color: #FFFF00; /* Màu vàng tươi nguyên bản, không bị cam */
+            border-radius: 0px; /* Góc vuông */
+        }
+
+        /* Hiệu ứng chạy thanh vàng trong 4 giây (bạn có thể chỉnh lại thời gian chạy nếu muốn) */
+        .start-loading {
+            animation: fillProgress 4s linear forwards;
         }
 
         @keyframes fillProgress {
@@ -58,42 +66,45 @@
             display: flex;
             align-items: center;
             gap: 10px;
-            color: white;
+            color: #ffffff;
             font-size: 14px;
         }
 
-        /* 3. 6 ô vuông chạy qua lại */
+        /* 6 ô vuông chạy qua lại */
         .squares {
             display: flex;
             gap: 4px;
         }
+        
         .sq {
             width: 8px;
             height: 8px;
-            background: #555;
-            animation: blink 1s infinite;
+            background: #333333;
+            border-radius: 0px; /* Ô vuông góc vuông */
+            animation: blink 1.2s infinite ease-in-out;
         }
-        .sq:nth-child(1) { animation-delay: 0.1s; }
-        .sq:nth-child(2) { animation-delay: 0.2s; }
+        
+        /* Độ trễ tạo hiệu ứng lướt sóng qua lại */
+        .sq:nth-child(1) { animation-delay: 0.0s; }
+        .sq:nth-child(2) { animation-delay: 0.15s; }
         .sq:nth-child(3) { animation-delay: 0.3s; }
-        .sq:nth-child(4) { animation-delay: 0.4s; }
-        .sq:nth-child(5) { animation-delay: 0.5s; }
-        .sq:nth-child(6) { animation-delay: 0.6s; }
+        .sq:nth-child(4) { animation-delay: 0.45s; }
+        .sq:nth-child(5) { animation-delay: 0.6s; }
+        .sq:nth-child(6) { animation-delay: 0.75s; }
 
         @keyframes blink {
-            50% { background: white; }
+            0%, 100% { background: #333333; }
+            50% { background: #ffffff; }
         }
     </style>
 </head>
 <body>
 
-    <!-- Logo chính giữa màn hình -->
-    <img id="myImage" src="maxresdefault.jpg" alt="Ponos">
+    <img id="ponosImage" src="maxresdefault.jpg" alt="Ponos">
 
-    <!-- Thanh loading bên dưới -->
     <div id="loadingWrapper">
         <div class="progress-bar-container">
-            <div class="progress-bar-fill"></div>
+            <div class="progress-bar-fill" id="fillBar"></div>
         </div>
         <div class="loading-status">
             <span>Loading</span>
@@ -105,9 +116,20 @@
     </div>
 
     <script>
-        // Sau 6 giây toàn bộ màn hình sẽ ẩn đi
+        const ponosImg = document.getElementById('ponosImage');
+        const loadingBox = document.getElementById('loadingWrapper');
+        const fillBar = document.getElementById('fillBar');
+
+        // Đúng 6 giây (6000ms) sau khi vào web
         setTimeout(() => {
-            document.body.innerHTML = ''; 
+            // 1. Ẩn ảnh Ponos đi
+            ponosImg.style.display = 'none';
+            
+            // 2. Hiển thị giao diện Loading lên
+            loadingBox.style.display = 'flex';
+            
+            // 3. Kích hoạt cho thanh màu vàng bắt đầu chạy tăng dần
+            fillBar.classList.add('start-loading');
         }, 6000);
     </script>
 </body>
