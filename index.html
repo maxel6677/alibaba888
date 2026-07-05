@@ -111,14 +111,19 @@
         </div>
     </div>
 
-    <audio id="introAudio" src="gd_salman-tension-stinger-ambience-355381.mp3" autoplay muted></audio>
+    <audio id="introAudio" src="gd_salman-tension-stinger-ambience-355381.mp3"></audio>
 
 <script>
 const ponosImg = document.getElementById('ponosImage');
 const loadingBox = document.getElementById('loadingWrapper');
 const fillBar = document.getElementById('fillBar');
 const introAudio = document.getElementById('introAudio');
+const introAudio = document.getElementById("introAudio");
 
+// Sau 1 giây thì phát âm thanh
+setTimeout(() => {
+    introAudio.play().catch(err => console.log(err));
+}, 1000);
 // Tự động kích hoạt đếm giờ chuyển cảnh ngay khi vào trang
 setTimeout(() => {
     ponosImg.style.display = 'none';
