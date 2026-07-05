@@ -18,67 +18,15 @@
             font-family: sans-serif;
         }
 
-        /* Màn hình xác nhận giao diện đẹp, huyền bí */
-        #interactionOverlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: #000000;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            z-index: 999;
-            color: white;
-        }
-
-        .warning-box {
-            text-align: center;
-            padding: 20px;
-        }
-
-        .warning-box h2 {
-            font-size: 24px;
-            color: #ff3333;
-            margin-bottom: 10px;
-            letter-spacing: 2px;
-        }
-
-        .warning-box p {
-            color: #aaaaaa;
-            font-size: 14px;
-            margin-bottom: 25px;
-        }
-
-        .start-btn {
-            background: transparent;
-            color: #ffffff;
-            border: 2px solid #ffffff;
-            padding: 12px 35px;
-            font-size: 16px;
-            cursor: pointer;
-            font-weight: bold;
-            transition: all 0.3s ease;
-        }
-
-        .start-btn:hover {
-            background: #ffffff;
-            color: #000000;
-            box-shadow: 0 0 15px #ffffff;
-        }
-
-        /* --- Giai đoạn 1: Ảnh Ponos --- */
+        /* --- Giai đoạn 1: Ảnh Ponos xuất hiện lập tức khi vào trang --- */
         #ponosImage {
             display: block;
             max-width: 100%;
             max-height: 100%;
             object-fit: contain;
+            
+            /* Chạy hiệu ứng mờ rõ dần ngay khi load trang */
             opacity: 0; 
-        }
-
-        .fade-in-active {
             animation: fadeInPonos 6s ease-in-out forwards; 
         }
 
@@ -87,7 +35,7 @@
             to { opacity: 1; }
         }
 
-        /* --- Giai đoạn 2: Loading --- */
+        /* --- Giai đoạn 2: Giao diện Loading xuất hiện sau --- */
         #loadingWrapper {
             display: none;
             width: 80%;
@@ -148,14 +96,6 @@
 </head>
 <body>
 
-    <div id="interactionOverlay">
-        <div class="warning-box">
-            <h2>CẢNH BÁO ÂM THANH</h2>
-            <p>Trò chơi có chứa âm thanh rùng rợn. Vui lòng đeo tai nghe.</p>
-            <button class="start-btn" id="btnEnter">VÀO GAME</button>
-        </div>
-    </div>
-
     <img id="ponosImage" src="red-skull-grim-reaper-illustration_43623-1641.jpg" alt="Ponos">
 
     <div id="loadingWrapper">
@@ -171,39 +111,35 @@
         </div>
     </div>
 
-    <audio id="introAudio" src="gd_salman-tension-stinger-ambience-355381.mp3"></audio>
+    <audio id="introAudio" src="gd_salman-tension-stinger-ambience-355381.mp3" autoplay muted></audio>
 
 <script>
-const overlay = document.getElementById('interactionOverlay');
-const btnEnter = document.getElementById('btnEnter');
 const ponosImg = document.getElementById('ponosImage');
 const loadingBox = document.getElementById('loadingWrapper');
 const fillBar = document.getElementById('fillBar');
 const introAudio = document.getElementById('introAudio');
 
-btnEnter.addEventListener('click', () => {
-    // 1. Biến mất màn hình cảnh báo
-    overlay.style.display = 'none';
+// Tự động kích hoạt đếm giờ chuyển cảnh ngay khi vào trang
+setTimeout(() => {
+    ponosImg.style.display = 'none';
+    loadingBox.style.display = 'flex';
+    fillBar.classList.add('start-loading');
 
-    // 2. Âm thanh được kích hoạt ngay lập tức
-    introAudio.play().catch(err => console.log(err));
-
-    // 3. Ảnh bắt đầu mờ rõ trong 6 giây
-    ponosImg.classList.add('fade-in-active');
-
-    // 4. Chờ 8 giây (6s rõ + 2s lưu ảnh) đổi sang Loading
+    // Chuyển sang trang lobby sau 4 giây loading kết thúc
     setTimeout(() => {
-        ponosImg.style.display = 'none';
-        loadingBox.style.display = 'flex';
-        fillBar.classList.add('start-loading');
+        window.location.href = "lobby.html";
+    }, 4000);
 
-        // Chuyển trang sau 4 giây loading kết thúc
-        setTimeout(() => {
-            window.location.href = "lobby.html";
-        }, 4000);
+}, 8000); // 6 giây mờ rõ + 2 giây lưu ảnh
 
-    }, 8000);
-});
+// Lắng nghe thao tác click bất kỳ của người dùng để bật tiếng lên
+document.body.addEventListener('click', () => {
+    if (introAudio.muted) {
+        introAudio.muted = false; // Bật âm thanh lên
+        // Nếu âm thanh lỡ bị dừng do chính sách cũ, lệnh này sẽ ép nó chạy tiếp
+        introAudio.play().catch(err => console.log(err)); 
+    }
+}, { once: true }); // Thuộc tính { once: true } giúp sự kiện này chỉ chạy duy nhất 1 lần đầu tiên
 </script>
 </body>
 </html>
