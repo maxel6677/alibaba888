@@ -114,23 +114,29 @@
             </div>
         </div>
     </div>
+<script>
+const ponosImg = document.getElementById('ponosImage');
+const loadingBox = document.getElementById('loadingWrapper');
+const fillBar = document.getElementById('fillBar');
 
-    <script>
-        const ponosImg = document.getElementById('ponosImage');
-        const loadingBox = document.getElementById('loadingWrapper');
-        const fillBar = document.getElementById('fillBar');
+// Sau 6 giây hiện loading
+setTimeout(() => {
 
-        // Đúng 6 giây (6000ms) sau khi vào web
-        setTimeout(() => {
-            // 1. Ẩn ảnh Ponos đi
-            ponosImg.style.display = 'none';
-            
-            // 2. Hiển thị giao diện Loading lên
-            loadingBox.style.display = 'flex';
-            
-            // 3. Kích hoạt cho thanh màu vàng bắt đầu chạy tăng dần
-            fillBar.classList.add('start-loading');
-        }, 6000);
-    </script>
+    // Ẩn ảnh Ponos
+    ponosImg.style.display = 'none';
+
+    // Hiện giao diện Loading
+    loadingBox.style.display = 'flex';
+
+    // Bắt đầu animation của thanh vàng
+    fillBar.classList.add('start-loading');
+
+    // Đợi thanh vàng chạy hết (4 giây)
+    setTimeout(() => {
+        window.location.href = "lobby.html";
+    }, 4000);
+
+}, 6000);
+</script>
 </body>
 </html>
