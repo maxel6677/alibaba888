@@ -8,7 +8,7 @@
         body {
             margin: 0;
             padding: 0;
-            background-color: #000000; /* Nền đen xuyên suốt */
+            background-color: #000000;
             width: 100vw;
             height: 100vh;
             display: flex;
@@ -18,51 +18,97 @@
             font-family: sans-serif;
         }
 
-        /* --- Giai đoạn 1: Ảnh Ponos xuất hiện trước --- */
+        /* Màn hình xác nhận giao diện đẹp, huyền bí */
+        #interactionOverlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #000000;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 999;
+            color: white;
+        }
+
+        .warning-box {
+            text-align: center;
+            padding: 20px;
+        }
+
+        .warning-box h2 {
+            font-size: 24px;
+            color: #ff3333;
+            margin-bottom: 10px;
+            letter-spacing: 2px;
+        }
+
+        .warning-box p {
+            color: #aaaaaa;
+            font-size: 14px;
+            margin-bottom: 25px;
+        }
+
+        .start-btn {
+            background: transparent;
+            color: #ffffff;
+            border: 2px solid #ffffff;
+            padding: 12px 35px;
+            font-size: 16px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s ease;
+        }
+
+        .start-btn:hover {
+            background: #ffffff;
+            color: #000000;
+            box-shadow: 0 0 15px #ffffff;
+        }
+
+        /* --- Giai đoạn 1: Ảnh Ponos --- */
         #ponosImage {
-            display: block; /* Hiện đầu tiên */
+            display: block;
             max-width: 100%;
             max-height: 100%;
             object-fit: contain;
-            
-            /* Thêm hiệu ứng mờ và rõ dần */
-            opacity: 0; /* Lúc đầu ẩn hoàn toàn */
-            animation: fadeInPonos 2s ease-in-out forwards; /* Rõ dần trong 2 giây */
+            opacity: 0; 
         }
 
-        /* Định nghĩa hiệu ứng rõ dần cho ảnh */
+        .fade-in-active {
+            animation: fadeInPonos 6s ease-in-out forwards; 
+        }
+
         @keyframes fadeInPonos {
             from { opacity: 0; }
             to { opacity: 1; }
         }
 
-        /* --- Giai đoạn 2: Giao diện Loading xuất hiện sau --- */
+        /* --- Giai đoạn 2: Loading --- */
         #loadingWrapper {
-            display: none; /* Lúc đầu ẩn đi */
+            display: none;
             width: 80%;
             max-width: 500px;
             flex-direction: column;
             align-items: center;
         }
 
-        /* Thanh chứa - góc vuông hoàn toàn */
         .progress-bar-container {
             width: 100%;
             height: 6px;
             background-color: #222222;
-            border-radius: 0px; /* Góc vuông */
             overflow: hidden;
         }
 
-        /* Thanh chạy màu vàng tươi - góc vuông */
         .progress-bar-fill {
             height: 100%;
             width: 0%;
-            background-color: #FFFF00; /* Màu vàng tươi nguyên bản, không bị cam */
-            border-radius: 0px; /* Góc vuông */
+            background-color: #FFFF00;
         }
 
-        /* Hiệu ứng chạy thanh vàng trong 4 giây */
         .start-loading {
             animation: fillProgress 4s linear forwards;
         }
@@ -80,22 +126,14 @@
             font-size: 14px;
         }
 
-        /* 6 ô vuông chạy qua lại */
-        .squares {
-            display: flex;
-            gap: 4px;
-        }
-
+        .squares { display: flex; gap: 4px; }
         .sq {
             width: 8px;
             height: 8px;
             background: #333333;
-            border-radius: 0px; /* Ô vuông góc vuông */
             animation: blink 1.2s infinite ease-in-out;
         }
-
-        /* Độ trễ tạo hiệu ứng lướt sóng qua lại */
-        .sq:nth-child(1) { animation-delay: 0.0s; }
+        .sq:nth-child(1) { animation-delay: 0s; }
         .sq:nth-child(2) { animation-delay: 0.15s; }
         .sq:nth-child(3) { animation-delay: 0.3s; }
         .sq:nth-child(4) { animation-delay: 0.45s; }
@@ -109,6 +147,14 @@
     </style>
 </head>
 <body>
+
+    <div id="interactionOverlay">
+        <div class="warning-box">
+            <h2>CẢNH BÁO ÂM THANH</h2>
+            <p>Trò chơi có chứa âm thanh rùng rợn. Vui lòng đeo tai nghe.</p>
+            <button class="start-btn" id="btnEnter">VÀO GAME</button>
+        </div>
+    </div>
 
     <img id="ponosImage" src="red-skull-grim-reaper-illustration_43623-1641.jpg" alt="Ponos">
 
@@ -124,28 +170,40 @@
             </div>
         </div>
     </div>
+
+    <audio id="introAudio" src="gd_salman-tension-stinger-ambience-355381.mp3"></audio>
+
 <script>
+const overlay = document.getElementById('interactionOverlay');
+const btnEnter = document.getElementById('btnEnter');
 const ponosImg = document.getElementById('ponosImage');
 const loadingBox = document.getElementById('loadingWrapper');
 const fillBar = document.getElementById('fillBar');
+const introAudio = document.getElementById('introAudio');
 
-// Sau 6 giây hiện loading
-setTimeout(() => {
-    // Ẩn ảnh Ponos
-    ponosImg.style.display = 'none';
+btnEnter.addEventListener('click', () => {
+    // 1. Biến mất màn hình cảnh báo
+    overlay.style.display = 'none';
 
-    // Hiện giao diện Loading
-    loadingBox.style.display = 'flex';
+    // 2. Âm thanh được kích hoạt ngay lập tức
+    introAudio.play().catch(err => console.log(err));
 
-    // Bắt đầu animation của thanh vàng
-    fillBar.classList.add('start-loading');
+    // 3. Ảnh bắt đầu mờ rõ trong 6 giây
+    ponosImg.classList.add('fade-in-active');
 
-    // Đợi thanh vàng chạy hết (4 giây)
+    // 4. Chờ 8 giây (6s rõ + 2s lưu ảnh) đổi sang Loading
     setTimeout(() => {
-        window.location.href = "lobby.html";
-    }, 4000);
+        ponosImg.style.display = 'none';
+        loadingBox.style.display = 'flex';
+        fillBar.classList.add('start-loading');
 
-}, 6000);
+        // Chuyển trang sau 4 giây loading kết thúc
+        setTimeout(() => {
+            window.location.href = "lobby.html";
+        }, 4000);
+
+    }, 8000);
+});
 </script>
 </body>
 </html>
