@@ -150,14 +150,14 @@ const BUTTONS = {
     nextSkin: { x: 330, y: 165, w: 40, h: 40 },
     actionSkin: { x: 100, y: 315, w: 200, h: 45 },
     giftcode: { x: 100, y: 445, w: 200, h: 38 },
-    useSkill: { x: 270, y: 20, w: 110, h: 45 } // Đặt ở góc cao thoáng mắt, thuận tiện tay bấm
+    useSkill: { x: 270, y: 20, w: 110, h: 45 }
 };
 let shopSelectIndex = 0;
 
 function handleInteraction(clientX, clientY) {
     initAudio();
     if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
-    
+
     const rect = canvas.getBoundingClientRect();
     const mx = (clientX - rect.left) * (canvas.width / rect.width);
     const my = (clientY - rect.top) * (canvas.height / rect.height);
@@ -293,9 +293,12 @@ function gameLoop() {
 }
 
 function update() {
-    if (gameState !== "PLAYING") return;
+    // ĐƯA LOGIC DI CHUYỂN NỀN LÊN ĐẦU: Giúp nền cuộn mượt ngay cả khi ở Menu chính
+    let stats = SKINS[currentSkin] || SKINS.DEFAULT;
+    bgX -= 0.6 * stats.speed;
+    if (bgX <= -canvas.width) bgX = 0;
 
-    let stats = SKINS[currentSkin];
+    if (gameState !== "PLAYING") return;
 
     if (skillCooldown > 0) skillCooldown--;
     if (activeSkillTimer > 0) activeSkillTimer--;
@@ -304,15 +307,12 @@ function update() {
         skillCharges = 2;
     }
 
-    bgX -= 0.6 * stats.speed;
-    if (bgX <= -canvas.width) bgX = 0;
-
     if (currentSkin === "ANGRY_RED" && activeSkillTimer > 0) {
         bird.velocity = 0;
     } else {
         bird.velocity += BASE_GRAVITY * stats.gravity;
     }
-    
+
     bird.y += bird.velocity;
     bird.angle = Math.min(Math.PI / 3, Math.max(-Math.PI / 7, bird.velocity * 0.09));
 
@@ -367,17 +367,19 @@ function handleDeath() {
 function draw() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // 1. Nền
+    // 1. Nền trời
     ctx.fillStyle = "#4ec0ca"; ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
+    // 2. Nền thành phố phía sau
     ctx.fillStyle = "#3caab5";
-    for (let j = 0; j < 2; j++) {
+    for (let j = 0; j < 3; j++) {
         let currentBgX = bgX + (j * canvas.width);
         ctx.fillRect(currentBgX + 10, canvas.height - 180, 50, 135);
         ctx.fillRect(currentBgX + 80, canvas.height - 220, 70, 175);
         ctx.fillRect(currentBgX + 180, canvas.height - 160, 60, 115);
     }
 
-    // 2. Ống cống
+    // 3. Ống cống
     if (gameState === "PLAYING" || gameState === "GAMEOVER") {
         for (let i = 0; i < pipes.length; i++) {
             let p = pipes[i];
@@ -389,7 +391,7 @@ function draw() {
         }
     }
 
-    // 3. Mặt đất
+    // 4. Mặt đất cố định phía trước
     ctx.fillStyle = "#ded895"; ctx.fillRect(0, canvas.height - 45, canvas.width, 45);
     ctx.fillStyle = "#54b031"; ctx.fillRect(0, canvas.height - 45, canvas.width, 12);
     ctx.fillStyle = "#000"; ctx.fillRect(0, canvas.height - 45, canvas.width, 3);
@@ -406,7 +408,7 @@ function draw() {
 
     if (gameState !== "PLAYING") drawText("🪙 XU: " + coins, 20, 40, "bold 18px Arial, sans-serif", "#f1c40f", "left");
 
-    // MAIN MENU
+    // MAIN MENU STATE
     if (gameState === "MAIN_MENU") {
         ctx.fillStyle = "rgba(0, 0, 0, 0.15)"; ctx.fillRect(0, 0, canvas.width, canvas.height);
         drawText("FLAPPY BIRD", canvas.width / 2, 160, "bold 44px Arial, sans-serif", "#f1c40f");
@@ -416,7 +418,7 @@ function draw() {
         drawButton(BUTTONS.play, "VÀO CHƠI", "#2ecc71"); drawButton(BUTTONS.shop, "TỦ ĐỒ", "#3498db");
     }
 
-    // SHOP SKIN
+    // SHOP SKIN STATE
     else if (gameState === "SKIN_SHOP") {
         ctx.fillStyle = "rgba(0, 0, 0, 0.5)"; ctx.fillRect(0, 0, canvas.width, canvas.height);
         drawText("CỬA HÀNG CHỈ SỐ", canvas.width / 2, 75, "bold 26px Arial, sans-serif", "#3498db");
@@ -432,8 +434,7 @@ function draw() {
         drawButton(BUTTONS.prevSkin, "<", "#7f8c8d"); drawButton(BUTTONS.nextSkin, ">", "#7f8c8d");
 
         drawText(activeSkin.desc, canvas.width / 2, 260, "bold 13px Arial, sans-serif", "#54b031");
-        
-        // SỬA LỖI LỆCH CHỮ MÔ TẢ KỸ NĂNG Ở ĐÂY
+
         ctx.font = "bold 11px Arial, sans-serif"; 
         ctx.fillStyle = "#fff";
         ctx.textAlign = "center";
@@ -469,10 +470,10 @@ function draw() {
             let label = "SKILL";
             if (currentSkin === "ANGRY_RED") label = `LƯỚT (${skillCharges})`;
             if (currentSkin === "DARK_NIGHT") label = "BẤT TỬ";
-            
+
             if (skillCooldown > 0) label = Math.ceil(skillCooldown / 60) + "s"; 
             if (activeSkillTimer > 0) label = "ACTIVE!"; 
-            
+
             drawButton(BUTTONS.useSkill, label, btnColor);
         } 
         else if (currentSkin === "EAGLE_MINI") {
@@ -500,9 +501,7 @@ function draw() {
 function drawBird(x, y, angle, radius, skinKey) {
     ctx.save(); ctx.translate(x, y); ctx.rotate(angle);
     ctx.lineWidth = 2.5; ctx.strokeStyle = "#000";
-    let color = SKINS[skinKey].color;
+    let color = (SKINS[skinKey] && SKINS[skinKey].color) ? SKINS[skinKey].color : "#f1c40f";
 
     if (skinKey === "ANGRY_RED") {
-        ctx.fillStyle = color; ctx.beginPath(); ctx.arc(0, 0, radius, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-        ctx.fillStyle = "#000"; ctx.fillRect(-2, -9, 12, 3.5);
-        ctx.fillStyle =
+        ctx.fillStyle = color; ctx.beginPath(); ctx.arc(0, 0, radius, 0, Math.PI * 2); ctx.fill(); ctx.str
