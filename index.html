@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Flappy Bird - RPG Responsive Fixed</title>
+    <title>Flappy Bird RPG</title>
     <style>
         body {
             margin: 0;
@@ -36,12 +36,9 @@
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
 
-// --- HỆ THỐNG GIỮ TỈ LỆ VÀ RESPONSIVE CHUẨN MOBILE ---
+// --- RESPONSIVE CHUẨN ---
 function resizeCanvas(){
-    let scale = Math.min(
-        window.innerWidth / 400,
-        window.innerHeight / 600
-    );
+    let scale = Math.min(window.innerWidth / 400, window.innerHeight / 600);
     canvas.style.width = (400 * scale) + "px";
     canvas.style.height = (600 * scale) + "px";
 }
@@ -81,7 +78,7 @@ const sounds = {
     skill: () => { playTone(700, "triangle", 0.1); setTimeout(() => playTone(1000, "triangle", 0.15), 60); }
 };
 
-// --- VẬT LÝ NỀN ---
+// --- CẤU HÌNH VẬT LÝ ---
 const BASE_GRAVITY = 0.24;
 const BASE_JUMP = -5.0;
 const BASE_PIPE_SPEED = 2.2;
@@ -89,59 +86,33 @@ const PIPE_GAP = 145;
 const PIPE_SPAWN_RATE = 95;
 const PIPE_WIDTH = 65;
 
-// --- CẤU HÌNH SKIN ---
 const SKINS = {
-    DEFAULT: { 
-        name: "Chim Mặc Định", cost: 0, color: "#f1c40f",
-        speed: 1.0, jump: 1.0, gravity: 1.0,
-        desc: "Tốc độ: 1 | Bật: 1 | Rơi: 1", skillDesc: "Kỹ năng: Không có"
-    },
-    ANGRY_RED: { 
-        name: "Angry Bird Đỏ", cost: 40, color: "#e74c3c",
-        speed: 1.2, jump: 1.2, gravity: 0.8,
-        desc: "Tốc độ: 1.2 | Bật: 1.2 | Rơi: 0.8", skillDesc: "Kỹ năng: Lướt xuyên ống (Tối đa 2 lần). Hồi: 40s"
-    },
-    EAGLE_MINI: { 
-        name: "Đại Bàng Mini", cost: 50, color: "#7f8c8d",
-        speed: 1.5, jump: 1.1, gravity: 1.2,
-        desc: "Tốc độ: 1.5 | Bật: 1.1 | Rơi: 1.2", skillDesc: "Kỹ năng: Tự hồi sinh 1 lần khi thua. Hồi: 60s"
-    },
-    DARK_NIGHT: { 
-        name: "Hắc Diều Hâu", cost: 70, color: "#2c3e50",
-        speed: 1.3, jump: 1.2, gravity: 0.9,
-        desc: "Tốc độ: 1.3 | Bật: 1.2 | Rơi: 0.9", skillDesc: "Kỹ năng: Bất tử xuyên ống trong 4 giây. Hồi: 40s"
-    }
+    DEFAULT: { name: "Chim Mặc Định", cost: 0, color: "#f1c40f", speed: 1.0, jump: 1.0, gravity: 1.0, desc: "Tốc độ: 1 | Bật: 1 | Rơi: 1", skillDesc: "Kỹ năng: Không có" },
+    ANGRY_RED: { name: "Angry Bird Đỏ", cost: 40, color: "#e74c3c", speed: 1.2, jump: 1.2, gravity: 0.8, desc: "Tốc độ: 1.2 | Bật: 1.2 | Rơi: 0.8", skillDesc: "Kỹ năng: Lướt xuyên ống (Tối đa 2 lần). Hồi: 40s" },
+    EAGLE_MINI: { name: "Đại Bàng Mini", cost: 50, color: "#7f8c8d", speed: 1.5, jump: 1.1, gravity: 1.2, desc: "Tốc độ: 1.5 | Bật: 1.1 | Rơi: 1.2", skillDesc: "Kỹ năng: Tự hồi sinh 1 lần khi thua. Hồi: 60s" },
+    DARK_NIGHT: { name: "Hắc Diều Hâu", cost: 70, color: "#2c3e50", speed: 1.3, jump: 1.2, gravity: 0.9, desc: "Tốc độ: 1.3 | Bật: 1.2 | Rơi: 0.9", skillDesc: "Kỹ năng: Bất tử xuyên ống trong 4 giây. Hồi: 40s" }
 };
 
-// --- STORAGE & KIỂM TRA TOÀN VẸN DỮ LIỆU ---
-let highScore = Number(localStorage.getItem("fb_highScore")) || 0;
-let coins = Number(localStorage.getItem("fb_coins")) || 0;
-let currentSkin = localStorage.getItem("fb_currentSkin") || "DEFAULT";
-let ownedSkins = JSON.parse(localStorage.getItem("fb_ownedSkins")) || ["DEFAULT"];
-let codeUsed = localStorage.getItem("fb_codeUsed_alibaba210") === "true";
-
-if (!SKINS[currentSkin]) {
-    currentSkin = "DEFAULT";
-    localStorage.setItem("fb_currentSkin", "DEFAULT");
+// --- TẢI DỮ LIỆU AN TOÀN ---
+let highScore = 0; let coins = 0; let currentSkin = "DEFAULT"; let ownedSkins = ["DEFAULT"]; let codeUsed = false;
+try {
+    highScore = Number(localStorage.getItem("fb_highScore")) || 0;
+    coins = Number(localStorage.getItem("fb_coins")) || 0;
+    currentSkin = localStorage.getItem("fb_currentSkin") || "DEFAULT";
+    ownedSkins = JSON.parse(localStorage.getItem("fb_ownedSkins")) || ["DEFAULT"];
+    codeUsed = localStorage.getItem("fb_codeUsed_alibaba210") === "true";
+    if (!SKINS[currentSkin]) currentSkin = "DEFAULT";
+    ownedSkins = ownedSkins.filter(skin => SKINS[skin]);
+    if (ownedSkins.length === 0) ownedSkins = ["DEFAULT"];
+} catch(e) {
+    highScore = 0; coins = 0; currentSkin = "DEFAULT"; ownedSkins = ["DEFAULT"];
 }
-ownedSkins = ownedSkins.filter(skin => SKINS[skin]);
-if (ownedSkins.length === 0) ownedSkins = ["DEFAULT"];
 
-// --- TRẠNG THÁI GAME ---
 let gameState = "MAIN_MENU"; 
-let score = 0;
-let frameCount = 0;
-let bgX = 0;
-let pipes = [];
-let shopMessageText = "";
-
+let score = 0; let frameCount = 0; let bgX = 0; let pipes = []; let shopMessageText = "";
 let bird = { x: 80, y: 250, radius: 13, velocity: 0, angle: 0 };
-let skillCharges = 0;       
-let skillCooldown = 0;      
-let activeSkillTimer = 0;   
-let hasRevivedThisMatch = false; 
+let skillCharges = 0; let skillCooldown = 0; let activeSkillTimer = 0; let hasRevivedThisMatch = false; 
 
-// --- ĐỊNH VỊ NÚT BẤM VỚI VỊ TRÍ SKILL MỚI (TỐI ƯU) ---
 const BUTTONS = {
     play: { x: 60, y: 360, w: 120, h: 45 },
     shop: { x: 220, y: 360, w: 120, h: 45 },
@@ -163,162 +134,85 @@ function handleInteraction(clientX, clientY) {
     const my = (clientY - rect.top) * (canvas.height / rect.height);
 
     if (gameState === "MAIN_MENU") {
-        if (checkInBtn(mx, my, BUTTONS.play)) {
-            resetGame();
-            gameState = "PLAYING";
-        } else if (checkInBtn(mx, my, BUTTONS.shop)) {
-            shopMessageText = "";
-            shopSelectIndex = Object.keys(SKINS).indexOf(currentSkin);
-            gameState = "SKIN_SHOP";
-        }
+        if (checkInBtn(mx, my, BUTTONS.play)) { resetGame(); gameState = "PLAYING"; }
+        else if (checkInBtn(mx, my, BUTTONS.shop)) { shopMessageText = ""; shopSelectIndex = Object.keys(SKINS).indexOf(currentSkin); gameState = "SKIN_SHOP"; }
     } 
     else if (gameState === "SKIN_SHOP") {
-        let skinKeys = Object.keys(SKINS);
-        let activeKey = skinKeys[shopSelectIndex];
-        let isOwned = ownedSkins.includes(activeKey);
-
-        if (checkInBtn(mx, my, BUTTONS.back)) {
-            gameState = "MAIN_MENU";
-        } else if (checkInBtn(mx, my, BUTTONS.prevSkin)) {
-            shopSelectIndex = (shopSelectIndex - 1 + skinKeys.length) % skinKeys.length;
-            shopMessageText = "";
-        } else if (checkInBtn(mx, my, BUTTONS.nextSkin)) {
-            shopSelectIndex = (shopSelectIndex + 1) % skinKeys.length;
-            shopMessageText = "";
-        } else if (checkInBtn(mx, my, BUTTONS.actionSkin)) {
-            if (isOwned) {
-                currentSkin = activeKey;
-                localStorage.setItem("fb_currentSkin", currentSkin);
-                shopMessageText = "Đã trang bị!";
-            } else {
+        let skinKeys = Object.keys(SKINS); let activeKey = skinKeys[shopSelectIndex]; let isOwned = ownedSkins.includes(activeKey);
+        if (checkInBtn(mx, my, BUTTONS.back)) { gameState = "MAIN_MENU"; }
+        else if (checkInBtn(mx, my, BUTTONS.prevSkin)) { shopSelectIndex = (shopSelectIndex - 1 + skinKeys.length) % skinKeys.length; shopMessageText = ""; }
+        else if (checkInBtn(mx, my, BUTTONS.nextSkin)) { shopSelectIndex = (shopSelectIndex + 1) % skinKeys.length; shopMessageText = ""; }
+        else if (checkInBtn(mx, my, BUTTONS.actionSkin)) {
+            if (isOwned) { currentSkin = activeKey; localStorage.setItem("fb_currentSkin", currentSkin); shopMessageText = "Đã trang bị!"; }
+            else {
                 let cost = SKINS[activeKey].cost;
                 if (coins >= cost) {
-                    coins -= cost;
-                    ownedSkins.push(activeKey);
-                    currentSkin = activeKey;
-                    localStorage.setItem("fb_coins", coins);
-                    localStorage.setItem("fb_ownedSkins", JSON.stringify(ownedSkins));
-                    localStorage.setItem("fb_currentSkin", currentSkin);
-                    sounds.buy();
-                    shopMessageText = "Mua thành công!";
-                } else {
-                    shopMessageText = "Không đủ xu!";
-                }
+                    coins -= cost; ownedSkins.push(activeKey); currentSkin = activeKey;
+                    localStorage.setItem("fb_coins", coins); localStorage.setItem("fb_ownedSkins", JSON.stringify(ownedSkins)); localStorage.setItem("fb_currentSkin", currentSkin);
+                    sounds.buy(); shopMessageText = "Mua thành công!";
+                } else { shopMessageText = "Không đủ xu!"; }
             }
         } else if (checkInBtn(mx, my, BUTTONS.giftcode)) {
             if (codeUsed) { shopMessageText = "Mã đã được sử dụng!"; return; }
             let inputCode = prompt("Nhập mã Giftcode:");
             if (inputCode && inputCode.trim() === "alibaba210") {
                 coins += 10000; codeUsed = true;
-                localStorage.setItem("fb_coins", coins);
-                localStorage.setItem("fb_codeUsed_alibaba210", "true");
+                localStorage.setItem("fb_coins", coins); localStorage.setItem("fb_codeUsed_alibaba210", "true");
                 sounds.buy(); shopMessageText = "Nhận thành công 10,000 Xu!";
-            } else if (inputCode) {
-                shopMessageText = "Mã sai rồi!";
-            }
+            } else if (inputCode) { shopMessageText = "Mã sai rồi!"; }
         }
     } 
     else if (gameState === "PLAYING") {
-        if ((currentSkin === "ANGRY_RED" || currentSkin === "DARK_NIGHT") && checkInBtn(mx, my, BUTTONS.useSkill)) {
-            triggerActiveSkill();
-            return;
-        }
-        bird.velocity = BASE_JUMP * SKINS[currentSkin].jump;
-        sounds.jump();
+        if ((currentSkin === "ANGRY_RED" || currentSkin === "DARK_NIGHT") && checkInBtn(mx, my, BUTTONS.useSkill)) { triggerActiveSkill(); return; }
+        bird.velocity = BASE_JUMP * SKINS[currentSkin].jump; sounds.jump();
     } 
-    else if (gameState === "GAMEOVER") {
-        gameState = "MAIN_MENU";
-    }
+    else if (gameState === "GAMEOVER") { gameState = "MAIN_MENU"; }
 }
 
-function checkInBtn(mx, my, btn) {
-    return mx >= btn.x && mx <= btn.x + btn.w && my >= btn.y && my <= btn.y + btn.h;
-}
+function checkInBtn(mx, my, btn) { return mx >= btn.x && mx <= btn.x + btn.w && my >= btn.y && my <= btn.y + btn.h; }
 
 canvas.addEventListener("mousedown", (e) => handleInteraction(e.clientX, e.clientY));
-canvas.addEventListener("touchstart", (e) => {
-    e.preventDefault(); 
-    handleInteraction(e.touches[0].clientX, e.touches[0].clientY);
-}, { passive: false });
-
+canvas.addEventListener("touchstart", (e) => { e.preventDefault(); handleInteraction(e.touches[0].clientX, e.touches[0].clientY); }, { passive: false });
 document.addEventListener("keydown", (e) => {
-    if (e.code === "Space" || e.code === "ArrowUp") {
-        if (gameState === "PLAYING") {
-            bird.velocity = BASE_JUMP * SKINS[currentSkin].jump;
-            sounds.jump();
-        }
-    } else if (e.code === "KeyE" || e.code === "ShiftLeft") { 
-        if (gameState === "PLAYING") triggerActiveSkill();
-    }
+    if (e.code === "Space" || e.code === "ArrowUp") { if (gameState === "PLAYING") { bird.velocity = BASE_JUMP * SKINS[currentSkin].jump; sounds.jump(); } }
+    else if (e.code === "KeyE" || e.code === "ShiftLeft") { if (gameState === "PLAYING") triggerActiveSkill(); }
 });
 
 function resetGame() {
-    bird = { x: 80, y: 250, radius: 13, velocity: 0, angle: 0 };
-    pipes = [];
-    score = 0;
-    frameCount = 0;
-    skillCooldown = 0;
-    activeSkillTimer = 0;
-    hasRevivedThisMatch = false;
+    bird = { x: 80, y: 250, radius: 13, velocity: 0, angle: 0 }; pipes = []; score = 0; frameCount = 0; skillCooldown = 0; activeSkillTimer = 0; hasRevivedThisMatch = false;
     skillCharges = (currentSkin === "ANGRY_RED") ? 2 : 0;
 }
 
 function triggerActiveSkill() {
     if (skillCooldown > 0) return; 
-
-    if (currentSkin === "ANGRY_RED" && skillCharges > 0) {
-        sounds.skill();
-        skillCharges--;
-        activeSkillTimer = 25; 
-        if (skillCharges === 0) {
-            skillCooldown = 40 * 60; 
-        }
-    } 
-    else if (currentSkin === "DARK_NIGHT") {
-        sounds.skill();
-        activeSkillTimer = 4 * 60; 
-        skillCooldown = 40 * 60;   
-    }
+    if (currentSkin === "ANGRY_RED" && skillCharges > 0) { sounds.skill(); skillCharges--; activeSkillTimer = 25; if (skillCharges === 0) skillCooldown = 40 * 60; } 
+    else if (currentSkin === "DARK_NIGHT") { sounds.skill(); activeSkillTimer = 4 * 60; skillCooldown = 40 * 60; }
 }
 
 function circleRectCollision(cx, cy, r, rx, ry, rw, rh) {
-    let closestX = Math.max(rx, Math.min(cx, rx + rw));
-    let closestY = Math.max(ry, Math.min(cy, ry + rh));
-    let dx = cx - closestX; let dy = cy - closestY;
-    return (dx * dx + dy * dy) < (r * r);
+    let closestX = Math.max(rx, Math.min(cx, rx + rw)); let closestY = Math.max(ry, Math.min(cy, ry + rh));
+    let dx = cx - closestX; let dy = cy - closestY; return (dx * dx + dy * dy) < (r * r);
 }
 
-function gameLoop() {
-    update(); draw(); requestAnimationFrame(gameLoop);
-}
+function gameLoop() { update(); draw(); requestAnimationFrame(gameLoop); }
 
 function update() {
-    // SỬA LỖI LOGIC: Đưa phần dịch chuyển nền lên trước lệnh "return" để menu chính hoạt động mượt mà
     let stats = SKINS[currentSkin] || SKINS.DEFAULT;
-    bgX -= 0.6 * stats.speed;
-    if (bgX <= -canvas.width) bgX = 0;
+    bgX -= 0.6 * stats.speed; if (bgX <= -canvas.width) bgX = 0;
 
     if (gameState !== "PLAYING") return;
 
     if (skillCooldown > 0) skillCooldown--;
     if (activeSkillTimer > 0) activeSkillTimer--;
+    if (currentSkin === "ANGRY_RED" && skillCooldown === 0 && skillCharges === 0) skillCharges = 2;
 
-    if (currentSkin === "ANGRY_RED" && skillCooldown === 0 && skillCharges === 0) {
-        skillCharges = 2;
-    }
-
-    if (currentSkin === "ANGRY_RED" && activeSkillTimer > 0) {
-        bird.velocity = 0;
-    } else {
-        bird.velocity += BASE_GRAVITY * stats.gravity;
-    }
+    if (currentSkin === "ANGRY_RED" && activeSkillTimer > 0) bird.velocity = 0;
+    else bird.velocity += BASE_GRAVITY * stats.gravity;
 
     bird.y += bird.velocity;
     bird.angle = Math.min(Math.PI / 3, Math.max(-Math.PI / 7, bird.velocity * 0.09));
 
-    if (bird.y + bird.radius >= canvas.height - 45 || bird.y - bird.radius <= 0) {
-        handleDeath();
-    }
+    if (bird.y + bird.radius >= canvas.height - 45 || bird.y - bird.radius <= 0) handleDeath();
 
     frameCount++;
     if (frameCount % PIPE_SPAWN_RATE === 0) {
@@ -328,19 +222,10 @@ function update() {
 
     let speedMultiplier = (currentSkin === "ANGRY_RED" && activeSkillTimer > 0) ? 3.5 : 1; 
     for (let i = 0; i < pipes.length; i++) {
-        let p = pipes[i];
-        p.x -= BASE_PIPE_SPEED * stats.speed * speedMultiplier;
-
+        let p = pipes[i]; p.x -= BASE_PIPE_SPEED * stats.speed * speedMultiplier;
         let hitTop = circleRectCollision(bird.x, bird.y, bird.radius, p.x, 0, PIPE_WIDTH, p.topHeight);
         let hitBottom = circleRectCollision(bird.x, bird.y, bird.radius, p.x, p.topHeight + PIPE_GAP, PIPE_WIDTH, canvas.height - (p.topHeight + PIPE_GAP));
-
-        if (hitTop || hitBottom) {
-            let isInvincible = (activeSkillTimer > 0);
-            if (!isInvincible) {
-                handleDeath();
-            }
-        }
-
+        if ((hitTop || hitBottom) && !(activeSkillTimer > 0)) handleDeath();
         if (!p.scored && p.x + PIPE_WIDTH < bird.x - bird.radius) {
             score++; coins++; p.scored = true; sounds.score();
             localStorage.setItem("fb_coins", coins);
@@ -352,23 +237,15 @@ function update() {
 
 function handleDeath() {
     if (currentSkin === "EAGLE_MINI" && !hasRevivedThisMatch && skillCooldown === 0) {
-        sounds.skill();
-        bird.y = 200; 
-        bird.velocity = 0;
-        pipes = []; 
-        hasRevivedThisMatch = true;
-        skillCooldown = 60 * 60; 
-        return;
+        sounds.skill(); bird.y = 200; bird.velocity = 0; pipes = []; hasRevivedThisMatch = true; skillCooldown = 60 * 60; return;
     }
-    gameState = "GAMEOVER";
-    sounds.hit();
+    gameState = "GAMEOVER"; sounds.hit();
 }
 
 function draw() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    // 1. Nền
     ctx.fillStyle = "#4ec0ca"; ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
     ctx.fillStyle = "#3caab5";
     for (let j = 0; j < 3; j++) {
         let currentBgX = bgX + (j * canvas.width);
@@ -377,7 +254,6 @@ function draw() {
         ctx.fillRect(currentBgX + 180, canvas.height - 160, 60, 115);
     }
 
-    // 2. Ống cống
     if (gameState === "PLAYING" || gameState === "GAMEOVER") {
         for (let i = 0; i < pipes.length; i++) {
             let p = pipes[i];
@@ -389,7 +265,6 @@ function draw() {
         }
     }
 
-    // 3. Mặt đất
     ctx.fillStyle = "#ded895"; ctx.fillRect(0, canvas.height - 45, canvas.width, 45);
     ctx.fillStyle = "#54b031"; ctx.fillRect(0, canvas.height - 45, canvas.width, 12);
     ctx.fillStyle = "#000"; ctx.fillRect(0, canvas.height - 45, canvas.width, 3);
@@ -404,9 +279,8 @@ function draw() {
         drawText(text, btn.x + btn.w/2, btn.y + btn.h/2 + 5, "bold 13px Arial, sans-serif", "#fff");
     }
 
-    if (gameState !== "PLAYING") drawText("🪙 XU: " + coins, 20, 40, "bold 18px Arial, sans-serif", "#f1c40f", "left");
+    if (gameState !== "PLAYING") drawText("XU: " + coins, 20, 40, "bold 18px Arial, sans-serif", "#f1c40f", "left");
 
-    // MAIN MENU
     if (gameState === "MAIN_MENU") {
         ctx.fillStyle = "rgba(0, 0, 0, 0.15)"; ctx.fillRect(0, 0, canvas.width, canvas.height);
         drawText("FLAPPY BIRD", canvas.width / 2, 160, "bold 44px Arial, sans-serif", "#f1c40f");
@@ -415,88 +289,51 @@ function draw() {
         drawBird(canvas.width / 2, 290, 0, 15, currentSkin);
         drawButton(BUTTONS.play, "VÀO CHƠI", "#2ecc71"); drawButton(BUTTONS.shop, "TỦ ĐỒ", "#3498db");
     }
-
-    // SHOP SKIN
     else if (gameState === "SKIN_SHOP") {
         ctx.fillStyle = "rgba(0, 0, 0, 0.5)"; ctx.fillRect(0, 0, canvas.width, canvas.height);
         drawText("CỬA HÀNG CHỈ SỐ", canvas.width / 2, 75, "bold 26px Arial, sans-serif", "#3498db");
-
-        let skinKeys = Object.keys(SKINS); let activeKey = skinKeys[shopSelectIndex];
-        let activeSkin = SKINS[activeKey]; let isOwned = ownedSkins.includes(activeKey);
-
-        ctx.fillStyle = "#2c3e50"; ctx.strokeStyle = "#fff"; ctx.lineWidth = 3;
-        ctx.fillRect(110, 110, 180, 120); ctx.strokeRect(110, 110, 180, 120);
+        let skinKeys = Object.keys(SKINS); let activeKey = skinKeys[shopSelectIndex]; let activeSkin = SKINS[activeKey]; let isOwned = ownedSkins.includes(activeKey);
+        ctx.fillStyle = "#2c3e50"; ctx.strokeStyle = "#fff"; ctx.lineWidth = 3; ctx.fillRect(110, 110, 180, 120); ctx.strokeRect(110, 110, 180, 120);
         drawBird(canvas.width / 2, 160, 0, 20, activeKey);
         drawText(activeSkin.name, canvas.width / 2, 215, "bold 15px Arial, sans-serif", "#fff");
-
         drawButton(BUTTONS.prevSkin, "<", "#7f8c8d"); drawButton(BUTTONS.nextSkin, ">", "#7f8c8d");
-
         drawText(activeSkin.desc, canvas.width / 2, 260, "bold 13px Arial, sans-serif", "#54b031");
-
-        ctx.font = "bold 11px Arial, sans-serif"; 
-        ctx.fillStyle = "#fff";
-        ctx.textAlign = "center";
-        ctx.fillText(activeSkin.skillDesc, canvas.width / 2, 285);
-
-        if (isOwned) {
-            let isEquipped = (currentSkin === activeKey);
-            drawButton(BUTTONS.actionSkin, isEquipped ? "ĐANG DÙNG" : "TRANG BỊ", isEquipped ? "#2ecc71" : "#f39c12");
-        } else {
-            drawButton(BUTTONS.actionSkin, `MUA (${activeSkin.cost} XU)`, "#e67e22");
-        }
-
+        ctx.font = "bold 11px Arial, sans-serif"; ctx.fillStyle = "#fff"; ctx.textAlign = "center"; ctx.fillText(activeSkin.skillDesc, canvas.width / 2, 285);
+        if (isOwned) { let isEquipped = (currentSkin === activeKey); drawButton(BUTTONS.actionSkin, isEquipped ? "ĐANG DÙNG" : "TRANG BỊ", isEquipped ? "#2ecc71" : "#f39c12"); } 
+        else { drawButton(BUTTONS.actionSkin, `MUA (${activeSkin.cost} XU)`, "#e67e22"); }
         ctx.fillStyle = "rgba(255,255,255,0.06)"; ctx.fillRect(30, 400, 340, 110);
         drawText("--- ĐỔI MÃ PHẦN THƯỞNG ---", canvas.width / 2, 425, "bold 13px Arial, sans-serif", "#aaa");
-        drawButton(BUTTONS.giftcode, "🎟️ NHẬP GIFTCODE", "#9b59b6");
+        drawButton(BUTTONS.giftcode, "NHẬP GIFTCODE", "#9b59b6");
         if (shopMessageText) drawText(shopMessageText, canvas.width / 2, 523, "bold 13px Arial, sans-serif", "#f1c40f");
-
         drawButton(BUTTONS.back, "TRỞ VỀ", "#e74c3c");
     }
-
-    // PLAYING STATE
     else if (gameState === "PLAYING") {
-        if (activeSkillTimer > 0) {
-            ctx.shadowBlur = 20; ctx.shadowColor = SKINS[currentSkin].color;
-        }
+        if (activeSkillTimer > 0) { ctx.shadowBlur = 20; ctx.shadowColor = SKINS[currentSkin].color; }
         drawBird(bird.x, bird.y, bird.angle, bird.radius, currentSkin);
         ctx.shadowBlur = 0; 
-
         drawText(score, canvas.width / 2, 70, "bold 45px Arial, sans-serif");
-
         if (currentSkin === "ANGRY_RED" || currentSkin === "DARK_NIGHT") {
-            let btnColor = (skillCooldown > 0) ? "#7f8c8d" : "#9b59b6";
-            let label = "SKILL";
-            if (currentSkin === "ANGRY_RED") label = `LƯỚT (${skillCharges})`;
-            if (currentSkin === "DARK_NIGHT") label = "BẤT TỬ";
-
-            if (skillCooldown > 0) label = Math.ceil(skillCooldown / 60) + "s"; 
-            if (activeSkillTimer > 0) label = "ACTIVE!"; 
-
+            let btnColor = (skillCooldown > 0) ? "#7f8c8d" : "#9b59b6"; let label = "SKILL";
+            if (currentSkin === "ANGRY_RED") label = `LƯỚT (${skillCharges})`; if (currentSkin === "DARK_NIGHT") label = "BẤT TỬ";
+            if (skillCooldown > 0) label = Math.ceil(skillCooldown / 60) + "s"; if (activeSkillTimer > 0) label = "ACTIVE!"; 
             drawButton(BUTTONS.useSkill, label, btnColor);
-        } 
-        else if (currentSkin === "EAGLE_MINI") {
-            let label = "❤️ HỒI SINH SẴN SÀNG";
-            if (skillCooldown > 0) label = `💔 HỒI: ${Math.ceil(skillCooldown / 60)}s`;
+        } else if (currentSkin === "EAGLE_MINI") {
+            let label = "HỒI SINH SẴN SÀNG"; if (skillCooldown > 0) label = `HỒI: ${Math.ceil(skillCooldown / 60)}s`;
             drawText(label, canvas.width - 20, 35, "bold 12px Arial, sans-serif", (skillCooldown > 0) ? "#e74c3c" : "#2ecc71", "right");
         }
     }
-
-    // GAME OVER STATE
     else if (gameState === "GAMEOVER") {
         ctx.fillStyle = "rgba(0, 0, 0, 0.6)"; ctx.fillRect(0, 0, canvas.width, canvas.height);
-        ctx.fillStyle = "#f4f1c3"; ctx.strokeStyle = "#543805"; ctx.lineWidth = 4;
-        ctx.fillRect(60, 180, 280, 180); ctx.strokeRect(60, 180, 280, 180);
-
+        ctx.fillStyle = "#f4f1c3"; ctx.strokeStyle = "#543805"; ctx.lineWidth = 4; ctx.fillRect(60, 180, 280, 180); ctx.strokeRect(60, 180, 280, 180);
         drawText("GAME OVER", canvas.width / 2, 225, "bold 30px Arial, sans-serif", "#e74c3c");
         drawText("ĐIỂM TRẬN: " + score, canvas.width / 2, 265, "bold 18px Arial, sans-serif", "#333");
-        drawText("🪙 THU HOẠCH: +" + score + " XU", canvas.width / 2, 295, "bold 16px Arial, sans-serif", "#d35400");
+        drawText("THU HOẠCH: +" + score + " XU", canvas.width / 2, 295, "bold 16px Arial, sans-serif", "#d35400");
         drawText("KỶ LỤC: " + highScore, canvas.width / 2, 325, "bold 18px Arial, sans-serif", "#333");
-
         drawText("CHẠM MÀN HÌNH ĐỂ VỀ TRANG CHỦ", canvas.width / 2, 410, "bold 15px Arial, sans-serif");
     }
 }
 
-// --- VÁ ĐẦY ĐỦ HÀM VẼ CHIM THEO TỪNG SKIN ---
+// --- THAY THẾ CTX.ELLIPSE() BẰNG PHƯƠNG PHÁP AN TOÀN TUYỆT ĐỐI ---
 function drawBird(x, y, angle, radius, skinKey) {
     ctx.save(); ctx.translate(x, y); ctx.rotate(angle);
     ctx.lineWidth = 2.5; ctx.strokeStyle = "#000";
@@ -504,3 +341,19 @@ function drawBird(x, y, angle, radius, skinKey) {
 
     if (skinKey === "ANGRY_RED") {
         ctx.fillStyle = color; ctx.beginPath(); ctx.arc(0, 0, radius, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+        ctx.fillStyle = "#000"; ctx.fillRect(-2, -9, 12, 3.5);
+        ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(5, -3, 4, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+        ctx.fillStyle = "#000"; ctx.beginPath(); ctx.arc(6, -3, 1.5, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#f39c12"; ctx.beginPath(); ctx.moveTo(10, 0); ctx.lineTo(18, -3); ctx.lineTo(13, 4); ctx.closePath(); ctx.fill(); ctx.stroke();
+    } 
+    else if (skinKey === "EAGLE_MINI") {
+        ctx.fillStyle = color; ctx.beginPath(); ctx.arc(0, 0, radius, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+        ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(0, 0, radius, -Math.PI/2, Math.PI/2); ctx.fill(); ctx.stroke();
+        ctx.fillStyle = "#000"; ctx.beginPath(); ctx.arc(3, -3, 1.5, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#f1c40f"; ctx.beginPath(); ctx.moveTo(8, -2); ctx.lineTo(17, 2); ctx.lineTo(10, 6); ctx.closePath(); ctx.fill(); ctx.stroke();
+    }
+    else if (skinKey === "DARK_NIGHT") {
+        ctx.fillStyle = color; ctx.beginPath(); ctx.arc(0, 0, radius, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+        ctx.fillStyle = "#e74c3c"; ctx.beginPath(); ctx.arc(4, -3, 3, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#000"; ctx.beginPath(); ctx.arc(5, -3, 1, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#7f8c8d"; ctx.beginPath(); ctx.moveTo(9, 0); ctx.lineTo(16, -2); ctx.lineTo(11, 4); ctx
