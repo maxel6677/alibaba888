@@ -2,149 +2,319 @@
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Alibaba666</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Flappy Bird Ultimate Edition</title>
     <style>
         body {
             margin: 0;
-            padding: 0;
-            background-color: #000000;
-            width: 100vw;
-            height: 100vh;
+            background-color: #111;
             display: flex;
             justify-content: center;
             align-items: center;
+            height: 100vh;
+            font-family: 'Courier New', Courier, monospace;
             overflow: hidden;
-            font-family: sans-serif;
+            user-select: none;
         }
-
-        /* --- Giai đoạn 1: Ảnh Ponos xuất hiện lập tức khi vào trang --- */
-        #ponosImage {
-            display: block;
-            max-width: 100%;
-            max-height: 100%;
-            object-fit: contain;
-            
-            /* Chạy hiệu ứng mờ rõ dần ngay khi load trang */
-            opacity: 0; 
-            animation: fadeInPonos 6s ease-in-out forwards; 
-        }
-
-        @keyframes fadeInPonos {
-            from { opacity: 0; }
-            to { opacity: 1; }
-        }
-
-        /* --- Giai đoạn 2: Giao diện Loading xuất hiện sau --- */
-        #loadingWrapper {
-            display: none;
-            width: 80%;
-            max-width: 500px;
-            flex-direction: column;
-            align-items: center;
-        }
-
-        .progress-bar-container {
-            width: 100%;
-            height: 6px;
-            background-color: #222222;
-            overflow: hidden;
-        }
-
-        .progress-bar-fill {
-            height: 100%;
-            width: 0%;
-            background-color: #FFFF00;
-        }
-
-        .start-loading {
-            animation: fillProgress 4s linear forwards;
-        }
-
-        @keyframes fillProgress {
-            to { width: 100%; }
-        }
-
-        .loading-status {
-            margin-top: 15px;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            color: #ffffff;
-            font-size: 14px;
-        }
-
-        .squares { display: flex; gap: 4px; }
-        .sq {
-            width: 8px;
-            height: 8px;
-            background: #333333;
-            animation: blink 1.2s infinite ease-in-out;
-        }
-        .sq:nth-child(1) { animation-delay: 0s; }
-        .sq:nth-child(2) { animation-delay: 0.15s; }
-        .sq:nth-child(3) { animation-delay: 0.3s; }
-        .sq:nth-child(4) { animation-delay: 0.45s; }
-        .sq:nth-child(5) { animation-delay: 0.6s; }
-        .sq:nth-child(6) { animation-delay: 0.75s; }
-
-        @keyframes blink {
-            0%, 100% { background: #333333; }
-            50% { background: #ffffff; }
+        canvas {
+            border: 4px solid #333;
+            box-shadow: 0 12px 36px rgba(0,0,0,0.7);
+            background-color: #4ec0ca;
+            cursor: pointer;
         }
     </style>
 </head>
 <body>
 
-    <img id="ponosImage" src="red-skull-grim-reaper-illustration_43623-1641.jpg" alt="Ponos">
-
-    <div id="loadingWrapper">
-        <div class="progress-bar-container">
-            <div class="progress-bar-fill" id="fillBar"></div>
-        </div>
-        <div class="loading-status">
-            <span>Loading</span>
-            <div class="squares">
-                <div class="sq"></div><div class="sq"></div><div class="sq"></div>
-                <div class="sq"></div><div class="sq"></div><div class="sq"></div>
-            </div>
-        </div>
-    </div>
-
-    <audio id="introAudio" src="gd_salman-tension-stinger-ambience-355381.mp3"></audio>
+    <canvas id="gameCanvas" width="400" height="600"></canvas>
 
 <script>
-const ponosImg = document.getElementById('ponosImage');
-const loadingBox = document.getElementById('loadingWrapper');
-const fillBar = document.getElementById('fillBar');
-const introAudio = document.getElementById('introAudio');
-const introAudio = document.getElementById("introAudio");
+const canvas = document.getElementById("gameCanvas");
+const ctx = canvas.getContext("2d");
 
-// Sau 1 giây thì phát âm thanh
-setTimeout(() => {
-    introAudio.play().catch(err => console.log(err));
-}, 100);
-// Tự động kích hoạt đếm giờ chuyển cảnh ngay khi vào trang
-setTimeout(() => {
-    ponosImg.style.display = 'none';
-    loadingBox.style.display = 'flex';
-    fillBar.classList.add('start-loading');
+// --- HỆ THỐNG ÂM THANH (Audio Web API - Tổng hợp tần số tự động, không cần file bên ngoài) ---
+const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+function playTone(freq, type, duration) {
+    try {
+        let osc = audioCtx.createOscillator();
+        let gain = audioCtx.createGain();
+        osc.type = type;
+        osc.frequency.value = freq;
+        gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + duration);
+    } catch(e) {}
+}
+const sounds = {
+    jump: () => playTone(400, "square", 0.1),
+    score: () => { playTone(600, "sine", 0.08); setTimeout(() => playTone(900, "sine", 0.15), 80); },
+    hit: () => playTone(150, "sawtooth", 0.3)
+};
 
-    // Chuyển sang trang lobby sau 4 giây loading kết thúc
-    setTimeout(() => {
-        window.location.href = "lobby.html";
-    }, 4000);
+// --- CẤU HÌNH GAME ---
+const GRAVITY = 0.24;
+const JUMP = -5.0;
+const PIPE_SPEED = 2.2;
+const PIPE_GAP = 135;
+const PIPE_SPAWN_RATE = 90;
+const PIPE_WIDTH = 65;
 
-}, 8000); // 6 giây mờ rõ + 2 giây lưu ảnh
+// --- TRẠNG THÁI GAME ---
+let gameState = "START"; // START, PLAYING, GAMEOVER
+let score = 0;
+let highScore = Number(localStorage.getItem("fb_highScore")) || 0; // Ép kiểu số chuẩn xác!
+let frameCount = 0;
+let bgX = 0;
+let pipes = [];
 
-// Lắng nghe thao tác click bất kỳ của người dùng để bật tiếng lên
-document.body.addEventListener('click', () => {
-    if (introAudio.muted) {
-        introAudio.muted = false; // Bật âm thanh lên
-        // Nếu âm thanh lỡ bị dừng do chính sách cũ, lệnh này sẽ ép nó chạy tiếp
-        introAudio.play().catch(err => console.log(err)); 
+let bird = {
+    x: 80,
+    y: 250,
+    radius: 13,
+    velocity: 0,
+    angle: 0
+};
+
+// --- TẢI SPRITE HÌNH ẢNH (Dùng ảnh pixelart mẫu) ---
+const birdImg = new Image();
+birdImg.src = "https://i.imgur.com/v8p0m9Y.png"; // Ảnh chú chim flappy gốc công cộng
+const bgImg = new Image();
+bgImg.src = "https://i.imgur.com/S7W7Adf.png"; // Ảnh nền thành phố
+
+// --- SỰ KIỆN ĐIỀU KHIỂN ---
+function handleAction(e) {
+    if (e) e.preventDefault();
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+
+    if (gameState === "START") {
+        gameState = "PLAYING";
+        bird.velocity = JUMP;
+        sounds.jump();
+    } else if (gameState === "PLAYING") {
+        bird.velocity = JUMP;
+        sounds.jump();
+    } else if (gameState === "GAMEOVER") {
+        resetGame();
+        gameState = "PLAYING";
     }
-}, { once: true }); // Thuộc tính { once: true } giúp sự kiện này chỉ chạy duy nhất 1 lần đầu tiên
+}
+
+document.addEventListener("keydown", (e) => { if (e.code === "Space" || e.code === "ArrowUp") handleAction(); });
+canvas.addEventListener("mousedown", handleAction);
+canvas.addEventListener("touchstart", handleAction, { passive: false });
+
+function resetGame() {
+    // Reset object hoàn toàn như bạn góp ý
+    bird = {
+        x: 80,
+        y: 250,
+        radius: 13,
+        velocity: 0,
+        angle: 0
+    };
+    pipes = [];
+    score = 0;
+    frameCount = 0;
+}
+
+// --- THUẬT TOÁN VA CHẠM CHUẨN HÌNH HỌC (Góp ý số 1 từ bạn) ---
+function circleRectCollision(cx, cy, r, rx, ry, rw, rh) {
+    let closestX = Math.max(rx, Math.min(cx, rx + rw));
+    let closestY = Math.max(ry, Math.min(cy, ry + rh));
+
+    let dx = cx - closestX;
+    let dy = cy - closestY;
+
+    return (dx * dx + dy * dy) < (r * r);
+}
+
+// --- VÒNG LẶP CHÍNH ---
+function gameLoop() {
+    update();
+    draw();
+    requestAnimationFrame(gameLoop);
+}
+
+// --- XỬ LÝ LOGIC ---
+function update() {
+    if (gameState !== "PLAYING") return;
+
+    // 1. Cuộn nền mượt
+    bgX -= 0.6;
+    if (bgX <= -canvas.width) bgX = 0;
+
+    // 2. Vật lý của chim
+    bird.velocity += GRAVITY;
+    bird.y += bird.velocity;
+    bird.angle = Math.min(Math.PI / 3, Math.max(-Math.PI / 7, bird.velocity * 0.09));
+
+    // Va chạm đất/trần
+    if (bird.y + bird.radius >= canvas.height - 45 || bird.y - bird.radius <= 0) {
+        triggerGameOver();
+    }
+
+    // 3. Quản lý ống cống
+    frameCount++;
+    if (frameCount % PIPE_SPAWN_RATE === 0) {
+        let topHeight = Math.floor(Math.random() * (canvas.height - PIPE_GAP - 160)) + 60;
+        pipes.push({
+            x: canvas.width,
+            topHeight: topHeight,
+            scored: false
+        });
+    }
+
+    for (let i = 0; i < pipes.length; i++) {
+        let p = pipes[i];
+        p.x -= PIPE_SPEED;
+
+        // Sử dụng hàm kiểm tra va chạm hình học chuẩn xác tuyệt đối
+        let hitTop = circleRectCollision(bird.x, bird.y, bird.radius, p.x, 0, PIPE_WIDTH, p.topHeight);
+        let hitBottom = circleRectCollision(bird.x, bird.y, bird.radius, p.x, p.topHeight + PIPE_GAP, PIPE_WIDTH, canvas.height - (p.topHeight + PIPE_GAP));
+
+        if (hitTop || hitBottom) {
+            triggerGameOver();
+        }
+
+        // Tính điểm chính xác bằng cờ scored
+        if (!p.scored && p.x + PIPE_WIDTH < bird.x - bird.radius) {
+            score++;
+            p.scored = true;
+            sounds.score();
+            if (score > highScore) {
+                highScore = score;
+                localStorage.setItem("fb_highScore", highScore);
+            }
+        }
+    }
+
+    // Dọn dẹp bộ nhớ bằng filter
+    pipes = pipes.filter(p => p.x + PIPE_WIDTH > 0);
+}
+
+function triggerGameOver() {
+    gameState = "GAMEOVER";
+    sounds.hit();
+}
+
+// --- ĐỒ HỌA CHUYÊN NGHIỆP ---
+function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // 1. Vẽ Nền thành phố (Sử dụng drawImage)
+    if (bgImg.complete) {
+        ctx.drawImage(bgImg, bgX, 0, canvas.width, canvas.height);
+        ctx.drawImage(bgImg, bgX + canvas.width, 0, canvas.width, canvas.height);
+    } else {
+        ctx.fillStyle = "#4ec0ca";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+    }
+
+    // 2. Vẽ Ống nước phong cách retro
+    for (let i = 0; i < pipes.length; i++) {
+        let p = pipes[i];
+        
+        ctx.fillStyle = "#73bf2e";
+        ctx.strokeStyle = "#000";
+        ctx.lineWidth = 3;
+
+        // Ống trên
+        ctx.fillRect(p.x, 0, PIPE_WIDTH, p.topHeight);
+        ctx.strokeRect(p.x, -5, PIPE_WIDTH, p.topHeight + 5);
+        ctx.fillStyle = "#98e342"; // Viền sáng khối ống
+        ctx.fillRect(p.x + 4, 0, 8, p.topHeight);
+        
+        // Gờ ống trên
+        ctx.fillStyle = "#73bf2e";
+        ctx.fillRect(p.x - 4, p.topHeight - 24, PIPE_WIDTH + 8, 24);
+        ctx.strokeRect(p.x - 4, p.topHeight - 24, PIPE_WIDTH + 8, 24);
+
+        // Ống dưới
+        let bY = p.topHeight + PIPE_GAP;
+        ctx.fillStyle = "#73bf2e";
+        ctx.fillRect(p.x, bY, PIPE_WIDTH, canvas.height - bY);
+        ctx.strokeRect(p.x, bY, PIPE_WIDTH, canvas.height - bY + 5);
+        ctx.fillStyle = "#98e342";
+        ctx.fillRect(p.x + 4, bY, 8, canvas.height - bY);
+
+        // Gờ ống dưới
+        ctx.fillStyle = "#73bf2e";
+        ctx.fillRect(p.x - 4, bY, PIPE_WIDTH + 8, 24);
+        ctx.strokeRect(p.x - 4, bY, PIPE_WIDTH + 8, 24);
+    }
+
+    // 3. Vẽ Mặt Đất cố định
+    ctx.fillStyle = "#ded895";
+    ctx.fillRect(0, canvas.height - 45, canvas.width, 45);
+    ctx.fillStyle = "#54b031"; // Cỏ
+    ctx.fillRect(0, canvas.height - 45, canvas.width, 12);
+    ctx.fillStyle = "#000";
+    ctx.fillRect(0, canvas.height - 45, canvas.width, 3);
+
+    // 4. Vẽ Chú Chim bằng Sprite (Có góc nghiêng xoay theo tâm vật lý)
+    ctx.save();
+    ctx.translate(bird.x, bird.y);
+    ctx.rotate(bird.angle);
+    
+    if (birdImg.complete) {
+        // Vẽ ảnh sprite chim căn giữa đúng tâm hình tròn bán kính 13
+        ctx.drawImage(birdImg, -17, -12, 34, 24);
+    } else {
+        // Fallback vẽ vector nếu ảnh chưa tải kịp
+        ctx.fillStyle = "#f1c40f";
+        ctx.beginPath(); ctx.arc(0, 0, bird.radius, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+    }
+    ctx.restore();
+
+    // 5. Hệ thống UI text bóng đổ sắc nét
+    function drawShadowText(text, x, y, font, color = "#fff") {
+        ctx.font = font;
+        ctx.textAlign = "center";
+        ctx.fillStyle = "#000"; // Đổ bóng
+        ctx.fillText(text, x + 3, y + 3);
+        ctx.fillStyle = color;
+        ctx.fillText(text, x, y);
+    }
+
+    // Vẽ Điểm khi đang chơi
+    if (gameState === "PLAYING") {
+        drawShadowText(score, canvas.width / 2, 70, "bold 45px 'Courier New'");
+    }
+
+    // 6. Các Màn hình Trạng thái (UI Screens)
+    if (gameState === "START") {
+        ctx.fillStyle = "rgba(0, 0, 0, 0.3)";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        drawShadowText("FLAPPY BIRD", canvas.width / 2, 200, "bold 40px 'Courier New'", "#f1c40f");
+        drawShadowText("CHẠM ĐỂ BẮT ĐẦU", canvas.width / 2, 300, "bold 20px 'Courier New'");
+        drawShadowText("KỶ LỤC: " + highScore, canvas.width / 2, 450, "bold 22px 'Courier New'", "#e74c3c");
+    }
+
+    if (gameState === "GAMEOVER") {
+        ctx.fillStyle = "rgba(0, 0, 0, 0.6)";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // Bảng điểm retro
+        ctx.fillStyle = "#f4f1c3";
+        ctx.strokeStyle = "#543805";
+        ctx.lineWidth = 4;
+        ctx.fillRect(60, 180, 280, 160);
+        ctx.strokeRect(60, 180, 280, 160);
+
+        drawShadowText("GAME OVER", canvas.width / 2, 230, "bold 30px 'Courier New'", "#e74c3c");
+        drawShadowText("ĐIỂM: " + score, canvas.width / 2, 275, "bold 20px 'Courier New'", "#333");
+        drawShadowText("KỶ LỤC: " + highScore, canvas.width / 2, 305, "bold 20px 'Courier New'", "#333");
+
+        drawShadowText("CHẠM ĐỂ CHƠI LẠI", canvas.width / 2, 400, "bold 18px 'Courier New'");
+    }
+}
+
+// Khởi chạy game loop
+gameLoop();
 </script>
+
 </body>
 </html>
