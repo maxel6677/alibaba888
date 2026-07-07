@@ -66,21 +66,6 @@ const PIPE_GAP = 145;
 const PIPE_SPAWN_RATE = 95;
 const PIPE_WIDTH = 65;
 
-// --- STORAGE ---
-let highScore = Number(localStorage.getItem("fb_highScore")) || 0;
-let coins = Number(localStorage.getItem("fb_coins")) || 0;
-let currentSkin = localStorage.getItem("fb_currentSkin") || "DEFAULT";
-let ownedSkins = JSON.parse(localStorage.getItem("fb_ownedSkins")) || ["DEFAULT"];
-let codeUsed = localStorage.getItem("fb_codeUsed_alibaba210") === "true";
-
-// --- TRẠNG THÁI GAME ---
-let gameState = "MAIN_MENU"; 
-let score = 0;
-let frameCount = 0;
-let bgX = 0;
-let pipes = [];
-let shopMessageText = "";
-
 // --- CẤU HÌNH SKIN ---
 const SKINS = {
     DEFAULT: { 
@@ -105,13 +90,37 @@ const SKINS = {
     }
 };
 
+// --- STORAGE & KIỂM TRA LỖI CRASH DỮ LIỆU CŨ ---
+let highScore = Number(localStorage.getItem("fb_highScore")) || 0;
+let coins = Number(localStorage.getItem("fb_coins")) || 0;
+let currentSkin = localStorage.getItem("fb_currentSkin") || "DEFAULT";
+let ownedSkins = JSON.parse(localStorage.getItem("fb_ownedSkins")) || ["DEFAULT"];
+let codeUsed = localStorage.getItem("fb_codeUsed_alibaba210") === "true";
+
+// KHẮC PHỤC LỖI KHÔNG TÌM THẤY SKIN CŨ TRONG LOCALSTORAGE
+if (!SKINS[currentSkin]) {
+    currentSkin = "DEFAULT";
+    localStorage.setItem("fb_currentSkin", "DEFAULT");
+}
+// Lọc lại danh sách skin đã sở hữu để tránh lỗi logic
+ownedSkins = ownedSkins.filter(skin => SKINS[skin]);
+if (ownedSkins.length === 0) ownedSkins = ["DEFAULT"];
+
+// --- TRẠNG THÁI GAME ---
+let gameState = "MAIN_MENU"; 
+let score = 0;
+let frameCount = 0;
+let bgX = 0;
+let pipes = [];
+let shopMessageText = "";
+
 let bird = { x: 80, y: 250, radius: 13, velocity: 0, angle: 0 };
 let skillCharges = 0;       
 let skillCooldown = 0;      
 let activeSkillTimer = 0;   
 let hasRevivedThisMatch = false; 
 
-// --- ĐỊNH VỊ NÚT BẤM (FIX TỌA ĐỘ PHÙ HỢP) ---
+// --- ĐỊNH VỊ NÚT BẤM ---
 const BUTTONS = {
     play: { x: 60, y: 360, w: 120, h: 45 },
     shop: { x: 220, y: 360, w: 120, h: 45 },
@@ -120,7 +129,7 @@ const BUTTONS = {
     nextSkin: { x: 330, y: 165, w: 40, h: 40 },
     actionSkin: { x: 100, y: 315, w: 200, h: 45 },
     giftcode: { x: 100, y: 445, w: 200, h: 38 },
-    useSkill: { x: 270, y: 485, w: 110, h: 50 } // Di chuyển nút Skill xuống hẳn góc dưới để tránh chạm nhầm khi bay
+    useSkill: { x: 270, y: 485, w: 110, h: 50 }
 };
 let shopSelectIndex = 0;
 
@@ -188,12 +197,10 @@ function handleInteraction(clientX, clientY) {
         }
     } 
     else if (gameState === "PLAYING") {
-        // Kiểm tra nút Skill độc lập
         if ((currentSkin === "ANGRY_RED" || currentSkin === "DARK_NIGHT") && checkInBtn(mx, my, BUTTONS.useSkill)) {
             triggerActiveSkill();
             return;
         }
-        // Nhảy nếu không bấm trúng nút skill
         bird.velocity = BASE_JUMP * SKINS[currentSkin].jump;
         sounds.jump();
     } 
@@ -430,7 +437,6 @@ function draw() {
 
         drawText(score, canvas.width / 2, 70, "bold 45px 'Courier New'");
 
-        // NÚT CHIÊU THỨC CHUẨN KHÔNG CẤN CHẠM
         if (currentSkin === "ANGRY_RED" || currentSkin === "DARK_NIGHT") {
             let btnColor = (skillCooldown > 0) ? "#7f8c8d" : "#9b59b6";
             let label = "SKILL";
@@ -479,5 +485,4 @@ function drawBird(x, y, angle, radius, skinKey) {
     else if (skinKey === "EAGLE_MINI") {
         ctx.fillStyle = color; ctx.beginPath(); ctx.arc(0, 0, radius, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
         ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.moveTo(-10, -5); ctx.lineTo(-15, -10); ctx.lineTo(-5, -11); ctx.lineTo(0, -14); ctx.lineTo(5, -10); ctx.closePath(); ctx.fill(); ctx.stroke();
-        ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(4, -3, 3.5, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-        ctx.fillStyle = "#000"; ctx.fillR
+      
