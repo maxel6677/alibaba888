@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Flappy Bird - Shop & Giftcode Edition</title>
+    <title>Flappy Bird - RPG Skin Stats & Skills</title>
     <style>
         body {
             margin: 0;
@@ -31,7 +31,7 @@
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
 
-// --- HỆ THỐNG ÂM THANH SẠCH (Web Audio API) ---
+// --- HỆ THỐNG ÂM THANH SẠCH ---
 const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 function playTone(freq, type, duration) {
     try {
@@ -43,31 +43,30 @@ function playTone(freq, type, duration) {
         gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration);
         osc.connect(gain);
         gain.connect(audioCtx.destination);
-        osc.start();
-        osc.stop(audioCtx.currentTime + duration);
+        osc.start(); osc.stop(audioCtx.currentTime + duration);
     } catch(e) {}
 }
 const sounds = {
     jump: () => playTone(400, "square", 0.08),
     score: () => { playTone(600, "sine", 0.05); setTimeout(() => playTone(900, "sine", 0.1), 50); },
     hit: () => playTone(150, "sawtooth", 0.25),
-    buy: () => { playTone(500, "sine", 0.08); setTimeout(() => playTone(700, "sine", 0.2), 80); }
+    buy: () => { playTone(500, "sine", 0.08); setTimeout(() => playTone(700, "sine", 0.2), 80); },
+    skill: () => { playTone(700, "triangle", 0.1); setTimeout(() => playTone(1000, "triangle", 0.15), 60); }
 };
 
-// --- CẤU HÌNH VẬT LÝ ---
-const GRAVITY = 0.24;
-const JUMP = -5.0;
-const PIPE_SPEED = 2.2;
-const PIPE_GAP = 135;
+// --- GỐC VẬT LÝ NỀN ---
+const BASE_GRAVITY = 0.24;
+const BASE_JUMP = -5.0;
+const BASE_PIPE_SPEED = 2.2;
+const PIPE_GAP = 140; 
 const PIPE_SPAWN_RATE = 90;
 const PIPE_WIDTH = 65;
 
-// --- DỮ LIỆU ĐƯỢC LƯU TRỮ (localStorage) ---
+// --- STORAGE ---
 let highScore = Number(localStorage.getItem("fb_highScore")) || 0;
 let coins = Number(localStorage.getItem("fb_coins")) || 0;
 let currentSkin = localStorage.getItem("fb_currentSkin") || "DEFAULT";
 let ownedSkins = JSON.parse(localStorage.getItem("fb_ownedSkins")) || ["DEFAULT"];
-// Kiểm tra xem đã dùng giftcode chưa
 let codeUsed = localStorage.getItem("fb_codeUsed_alibaba210") === "true";
 
 // --- TRẠNG THÁI GAME ---
@@ -76,33 +75,52 @@ let score = 0;
 let frameCount = 0;
 let bgX = 0;
 let pipes = [];
-let shopMessageText = ""; // Hiển thị thông báo trong shop (Mua thành công, sai code...)
+let shopMessageText = "";
 
-let bird = { x: 80, y: 250, radius: 13, velocity: 0, angle: 0 };
-
-// --- ĐỊNH NGHĨA HỆ THỐNG SKIN (Đồng giá 30 xu theo yêu cầu) ---
+// --- CẤU HÌNH CHỈ SỐ & KỸ NĂNG TỪNG SKIN ---
 const SKINS = {
-    DEFAULT: { name: "Chim Gốc", color: "#f1c40f" },
-    ANGRY_RED: { name: "Angry Bird Đỏ", color: "#e74c3c" },
-    EAGLE_MINI: { name: "Đại Bàng Mini", color: "#7f8c8d" },
-    GOLDEN_BIRD: { name: "Chim Vàng Kim", color: "#f39c12" },
-    DARK_NIGHT: { name: "Hắc Diều Hâu", color: "#2c3e50" }
+    DEFAULT: { 
+        name: "Chim Mặc Định", cost: 0, color: "#f1c40f",
+        speed: 1.0, jump: 1.0, gravity: 1.0,
+        desc: "Tốc độ: 1 | Bật: 1 | Rơi: 1", skillDesc: "Kỹ năng: Không có"
+    },
+    ANGRY_RED: { 
+        name: "Angry Bird Đỏ", cost: 40, color: "#e74c3c",
+        speed: 1.2, jump: 1.2, gravity: 0.8,
+        desc: "Tốc độ: 1.2 | Bật: 1.2 | Rơi: 0.8", skillDesc: "Kỹ năng: Lướt xuyên ống (Tối đa 2 lần). Hồi: 40s"
+    },
+    EAGLE_MINI: { 
+        name: "Đại Bàng Mini", cost: 50, color: "#7f8c8d",
+        speed: 1.5, jump: 1.1, gravity: 1.2,
+        desc: "Tốc độ: 1.5 | Bật: 1.1 | Rơi: 1.2", skillDesc: "Kỹ năng: Tự hồi sinh 1 lần khi thua. Hồi: 60s"
+    },
+    DARK_NIGHT: { 
+        name: "Hắc Diều Hâu", cost: 70, color: "#2c3e50",
+        speed: 1.3, jump: 1.2, gravity: 0.9,
+        desc: "Tốc độ: 1.3 | Bật: 1.2 | Rơi: 0.9", skillDesc: "Kỹ năng: Bất tử xuyên ống trong 4 giây. Hồi: 40s"
+    }
 };
-const SKIN_COST = 30; // Đồng giá 30 xu
 
-// --- ĐỊNH VỊ NÚT BẤM TRÊN CANVAS ---
+// --- BIẾN TRẠNG THÁI KỸ NĂNG LÂM TRẬN ---
+let bird = { x: 80, y: 250, radius: 13, velocity: 0, angle: 0 };
+let skillCharges = 0;       // Số lần dùng chiêu còn lại (dành cho Angry Bird)
+let skillCooldown = 0;      // Thời gian hồi chiêu (tính bằng Frame, 60 frames = 1 giây)
+let activeSkillTimer = 0;   // Thời gian chiêu đang hiệu lực (dành cho Hắc Diều Hâu)
+let hasRevivedThisMatch = false; // Đã hồi sinh trận này chưa (dành cho Đại bàng)
+
+// --- ĐỊNH VỊ NÚT BẤM ---
 const BUTTONS = {
-    play: { x: 70, y: 340, w: 110, h: 45 },
-    shop: { x: 220, y: 340, w: 110, h: 45 },
-    back: { x: 130, y: 520, w: 140, h: 40 },
-    prevSkin: { x: 40, y: 225, w: 40, h: 40 },
-    nextSkin: { x: 320, y: 225, w: 40, h: 40 },
-    actionSkin: { x: 100, y: 320, w: 200, h: 45 }, // Nút gộp Trang bị / Mua skin
-    giftcode: { x: 100, y: 440, w: 200, h: 40 }   // Nút bấm mở hộp thoại nhập code
+    play: { x: 70, y: 360, w: 110, h: 45 },
+    shop: { x: 220, y: 360, w: 110, h: 45 },
+    back: { x: 130, y: 535, w: 140, h: 35 },
+    prevSkin: { x: 30, y: 175, w: 40, h: 40 },
+    nextSkin: { x: 330, y: 175, w: 40, h: 40 },
+    actionSkin: { x: 100, y: 315, w: 200, h: 45 },
+    giftcode: { x: 100, y: 445, w: 200, h: 38 },
+    useSkill: { x: 280, y: 20, w: 100, h: 45 } // Nút bấm kích hoạt kỹ năng trong trận
 };
 let shopSelectIndex = 0;
 
-// --- XỬ LÝ SỰ KIỆN CLICK / CHẠM ---
 function handleInteraction(clientX, clientY) {
     if (audioCtx.state === 'suspended') audioCtx.resume();
     
@@ -110,7 +128,6 @@ function handleInteraction(clientX, clientY) {
     const mx = (clientX - rect.left) * (canvas.width / rect.width);
     const my = (clientY - rect.top) * (canvas.height / rect.height);
 
-    // TRANG CHỦ
     if (gameState === "MAIN_MENU") {
         if (checkInBtn(mx, my, BUTTONS.play)) {
             resetGame();
@@ -121,7 +138,6 @@ function handleInteraction(clientX, clientY) {
             gameState = "SKIN_SHOP";
         }
     } 
-    // PHÒNG THAY ĐỒ & CỬA HÀNG MUA THẲNG
     else if (gameState === "SKIN_SHOP") {
         let skinKeys = Object.keys(SKINS);
         let activeKey = skinKeys[shopSelectIndex];
@@ -129,67 +145,55 @@ function handleInteraction(clientX, clientY) {
 
         if (checkInBtn(mx, my, BUTTONS.back)) {
             gameState = "MAIN_MENU";
-        }
-        else if (checkInBtn(mx, my, BUTTONS.prevSkin)) {
+        } else if (checkInBtn(mx, my, BUTTONS.prevSkin)) {
             shopSelectIndex = (shopSelectIndex - 1 + skinKeys.length) % skinKeys.length;
             shopMessageText = "";
         } else if (checkInBtn(mx, my, BUTTONS.nextSkin)) {
             shopSelectIndex = (shopSelectIndex + 1) % skinKeys.length;
             shopMessageText = "";
-        }
-        // Xử lý nút Hành Động (Mua hoặc Trang bị)
-        else if (checkInBtn(mx, my, BUTTONS.actionSkin)) {
+        } else if (checkInBtn(mx, my, BUTTONS.actionSkin)) {
             if (isOwned) {
-                // Nếu đã sở hữu -> Trang bị
                 currentSkin = activeKey;
                 localStorage.setItem("fb_currentSkin", currentSkin);
-                shopMessageText = "Đã trang bị thành công!";
+                shopMessageText = "Đã trang bị!";
             } else {
-                // Nếu chưa sở hữu -> Thực hiện MUA THẲNG 30 XU
-                if (coins >= SKIN_COST) {
-                    coins -= SKIN_COST;
+                let cost = SKINS[activeKey].cost;
+                if (coins >= cost) {
+                    coins -= cost;
                     ownedSkins.push(activeKey);
-                    currentSkin = activeKey; // Tự động mặc luôn sau khi mua
-                    
+                    currentSkin = activeKey;
                     localStorage.setItem("fb_coins", coins);
                     localStorage.setItem("fb_ownedSkins", JSON.stringify(ownedSkins));
                     localStorage.setItem("fb_currentSkin", currentSkin);
-                    
                     sounds.buy();
-                    shopMessageText = "Mua thành công & Đã trang bị!";
+                    shopMessageText = "Mua thành công!";
                 } else {
-                    shopMessageText = "Không đủ tiền! Cần " + SKIN_COST + " Xu.";
+                    shopMessageText = "Không đủ xu!";
                 }
             }
-        }
-        // Xử lý nút NHẬP GIFTCODE
-        else if (checkInBtn(mx, my, BUTTONS.giftcode)) {
-            if (codeUsed) {
-                shopMessageText = "Bạn đã dùng code này rồi!";
-                return;
-            }
-            // Sử dụng prompt có sẵn của trình duyệt để người chơi nhập code nhanh gọn
-            let inputCode = prompt("Nhập mã Giftcode của bạn tại đây:");
-            if (inputCode !== null) {
-                if (inputCode.trim() === "alibaba210") {
-                    coins += 10000;
-                    codeUsed = true;
-                    localStorage.setItem("fb_coins", coins);
-                    localStorage.setItem("fb_codeUsed_alibaba210", "true");
-                    sounds.buy();
-                    shopMessageText = "Nhận thành công 10,000 Xu!";
-                } else {
-                    shopMessageText = "Mã Giftcode không chính xác!";
-                }
+        } else if (checkInBtn(mx, my, BUTTONS.giftcode)) {
+            if (codeUsed) { shopMessageText = "Mã đã được sử dụng!"; return; }
+            let inputCode = prompt("Nhập mã Giftcode:");
+            if (inputCode && inputCode.trim() === "alibaba210") {
+                coins += 10000; codeUsed = true;
+                localStorage.setItem("fb_coins", coins);
+                localStorage.setItem("fb_codeUsed_alibaba210", "true");
+                sounds.buy(); shopMessageText = "Nhận thành công 10,000 Xu!";
+            } else if (inputCode) {
+                shopMessageText = "Mã sai rồi!";
             }
         }
     } 
-    // ĐANG CHƠI
     else if (gameState === "PLAYING") {
-        bird.velocity = JUMP;
+        // Kiểm tra nếu bấm vào nút Kỹ năng chủ động
+        if ((currentSkin === "ANGRY_RED" || currentSkin === "DARK_NIGHT") && checkInBtn(mx, my, BUTTONS.useSkill)) {
+            triggerActiveSkill();
+            return;
+        }
+        // Nhảy bình thường
+        bird.velocity = BASE_JUMP * SKINS[currentSkin].jump;
         sounds.jump();
     } 
-    // THUA TRẬN
     else if (gameState === "GAMEOVER") {
         gameState = "MAIN_MENU";
     }
@@ -201,12 +205,17 @@ function checkInBtn(mx, my, btn) {
 
 canvas.addEventListener("mousedown", (e) => handleInteraction(e.clientX, e.clientY));
 canvas.addEventListener("touchstart", (e) => {
-    e.preventDefault();
-    handleInteraction(e.touches[0].clientX, e.touches[0].clientY);
+    e.preventDefault(); handleInteraction(e.touches[0].clientX, e.touches[0].clientY);
 }, { passive: false });
+
 document.addEventListener("keydown", (e) => {
     if (e.code === "Space" || e.code === "ArrowUp") {
-        if (gameState === "PLAYING") { bird.velocity = JUMP; sounds.jump(); }
+        if (gameState === "PLAYING") {
+            bird.velocity = BASE_JUMP * SKINS[currentSkin].jump;
+            sounds.jump();
+        }
+    } else if (e.code === "KeyE" || e.code === "ShiftLeft") { // Phím tắt dùng chiêu trên PC
+        if (gameState === "PLAYING") triggerActiveSkill();
     }
 });
 
@@ -215,37 +224,75 @@ function resetGame() {
     pipes = [];
     score = 0;
     frameCount = 0;
+    
+    // Reset thông số kỹ năng theo skin
+    skillCooldown = 0;
+    activeSkillTimer = 0;
+    hasRevivedThisMatch = false;
+    skillCharges = (currentSkin === "ANGRY_RED") ? 2 : 0;
 }
 
-// --- THUẬT TOÁN VA CHẠM ---
+// --- KÍCH HOẠT CHIÊU CHỦ ĐỘNG (Bấm nút hoặc bấm phím Shift/E) ---
+function triggerActiveSkill() {
+    if (skillCooldown > 0) return; // Đang hồi chiêu không thể bấm
+
+    if (currentSkin === "ANGRY_RED" && skillCharges > 0) {
+        sounds.skill();
+        skillCharges--;
+        activeSkillTimer = 25; // Lướt nhanh xuyên vật cản trong 25 frames (~0.4s)
+        if (skillCharges === 0) {
+            skillCooldown = 40 * 60; // Bắt đầu hồi chiêu sau khi xài hết 2 lần lướt (40 giây)
+        }
+    } 
+    else if (currentSkin === "DARK_NIGHT") {
+        sounds.skill();
+        activeSkillTimer = 4 * 60; // 4 giây bất tử tuyệt đối (240 frames)
+        skillCooldown = 40 * 60;   // Cooldown hồi chiêu 40 giây
+    }
+}
+
 function circleRectCollision(cx, cy, r, rx, ry, rw, rh) {
     let closestX = Math.max(rx, Math.min(cx, rx + rw));
     let closestY = Math.max(ry, Math.min(cy, ry + rh));
-    let dx = cx - closestX;
-    let dy = cy - closestY;
+    let dx = cx - closestX; let dy = cy - closestY;
     return (dx * dx + dy * dy) < (r * r);
 }
 
-// --- VÒNG LẶP GAME ---
 function gameLoop() {
-    update();
-    draw();
-    requestAnimationFrame(gameLoop);
+    update(); draw(); requestAnimationFrame(gameLoop);
 }
 
+// --- XỬ LÝ LOGIC TRẬN ĐẤU ---
 function update() {
     if (gameState !== "PLAYING") return;
 
-    bgX -= 0.6;
+    let stats = SKINS[currentSkin];
+
+    // Cập nhật bộ đếm thời gian hồi chiêu/hiệu lực chiêu
+    if (skillCooldown > 0) skillCooldown--;
+    if (activeSkillTimer > 0) activeSkillTimer--;
+
+    // Nếu Angry Bird Đỏ hoặc Hắc Diều Hâu đã hồi chiêu xong thì nạp lại năng lượng
+    if (currentSkin === "ANGRY_RED" && skillCooldown === 0 && skillCharges === 0) {
+        skillCharges = 2;
+    }
+
+    bgX -= 0.6 * stats.speed;
     if (bgX <= -canvas.width) bgX = 0;
 
-    bird.velocity += GRAVITY;
+    // Nếu đang lướt (Angry Bird Red), giữ vận tốc bay thẳng ngang không rơi
+    if (currentSkin === "ANGRY_RED" && activeSkillTimer > 0) {
+        bird.velocity = 0;
+    } else {
+        bird.velocity += BASE_GRAVITY * stats.gravity;
+    }
+    
     bird.y += bird.velocity;
     bird.angle = Math.min(Math.PI / 3, Math.max(-Math.PI / 7, bird.velocity * 0.09));
 
+    // Va chạm Đất/Trần
     if (bird.y + bird.radius >= canvas.height - 45 || bird.y - bird.radius <= 0) {
-        gameState = "GAMEOVER";
-        sounds.hit();
+        handleDeath();
     }
 
     frameCount++;
@@ -254,79 +301,51 @@ function update() {
         pipes.push({ x: canvas.width, topHeight: topHeight, scored: false });
     }
 
+    let speedMultiplier = (currentSkin === "ANGRY_RED" && activeSkillTimer > 0) ? 3.5 : 1; // Lướt phóng nhanh
     for (let i = 0; i < pipes.length; i++) {
         let p = pipes[i];
-        p.x -= PIPE_SPEED;
+        p.x -= BASE_PIPE_SPEED * stats.speed * speedMultiplier;
 
         let hitTop = circleRectCollision(bird.x, bird.y, bird.radius, p.x, 0, PIPE_WIDTH, p.topHeight);
         let hitBottom = circleRectCollision(bird.x, bird.y, bird.radius, p.x, p.topHeight + PIPE_GAP, PIPE_WIDTH, canvas.height - (p.topHeight + PIPE_GAP));
 
         if (hitTop || hitBottom) {
-            gameState = "GAMEOVER";
-            sounds.hit();
+            // KIỂM TRA ĐIỀU KIỆN KHÔNG BỊ CHẾT (BẤT TỬ/LƯỚT)
+            let isInvincible = (activeSkillTimer > 0);
+            if (!isInvincible) {
+                handleDeath();
+            }
         }
 
         if (!p.scored && p.x + PIPE_WIDTH < bird.x - bird.radius) {
-            score++;
-            coins++; 
-            p.scored = true;
-            sounds.score();
-            
+            score++; coins++; p.scored = true; sounds.score();
             localStorage.setItem("fb_coins", coins);
-            if (score > highScore) {
-                highScore = score;
-                localStorage.setItem("fb_highScore", highScore);
-            }
+            if (score > highScore) { highScore = score; localStorage.setItem("fb_highScore", highScore); }
         }
     }
-
     pipes = pipes.filter(p => p.x + PIPE_WIDTH > 0);
 }
 
-// --- HÀM VẼ SKIN CHIM ---
-function drawBird(x, y, angle, radius, skinKey) {
-    ctx.save();
-    ctx.translate(x, y);
-    ctx.rotate(angle);
-    ctx.lineWidth = 2.5;
-    ctx.strokeStyle = "#000";
-
-    let color = SKINS[skinKey].color;
-
-    if (skinKey === "ANGRY_RED") {
-        ctx.fillStyle = color;
-        ctx.beginPath(); ctx.arc(0, 0, radius, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-        ctx.fillStyle = "#000"; ctx.fillRect(-2, -9, 12, 3.5);
-        ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(4, -3, 4, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-        ctx.fillStyle = "#000"; ctx.beginPath(); ctx.arc(5, -3, 1.5, 0, Math.PI * 2); ctx.fill();
-        ctx.fillStyle = "#f1c40f"; ctx.beginPath(); ctx.moveTo(8, -1); ctx.lineTo(17, 2); ctx.lineTo(8, 5); ctx.closePath(); ctx.fill(); ctx.stroke();
-    } 
-    else if (skinKey === "EAGLE_MINI") {
-        ctx.fillStyle = color;
-        ctx.beginPath(); ctx.arc(0, 0, radius, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-        ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.moveTo(-10, -5); ctx.lineTo(-15, -10); ctx.lineTo(-5, -11); ctx.lineTo(0, -14); ctx.lineTo(5, -10); ctx.closePath(); ctx.fill(); ctx.stroke();
-        ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(4, -3, 3.5, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-        ctx.fillStyle = "#000"; ctx.fillRect(2, -7, 4, 1.5); ctx.beginPath(); ctx.arc(4.5, -3, 1.5, 0, Math.PI * 2); ctx.fill();
-        ctx.fillStyle = "#f39c12"; ctx.beginPath(); ctx.moveTo(8, -2); ctx.lineTo(16, 2); ctx.lineTo(11, 7); ctx.lineTo(8, 4); ctx.closePath(); ctx.fill(); ctx.stroke();
-    } 
-    else {
-        ctx.fillStyle = color;
-        ctx.beginPath(); ctx.arc(0, 0, radius, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-        ctx.fillStyle = "#fff"; ctx.beginPath();
-        let wingWave = (gameState === "PLAYING") ? Math.sin(frameCount * 0.4) * 3 : 0;
-        ctx.ellipse(-5, 2, 7, 5 + wingWave/2, Math.PI/6, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-        ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(5, -4, 5, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-        ctx.fillStyle = "#000"; ctx.beginPath(); ctx.arc(6.5, -4, 1.8, 0, Math.PI * 2); ctx.fill();
-        ctx.fillStyle = "#e67e22"; ctx.beginPath(); ctx.moveTo(11, -3); ctx.lineTo(20, 1); ctx.lineTo(11, 5); ctx.closePath(); ctx.fill(); ctx.stroke();
+// Xử lý khi va chạm thua cuộc (Có tính toán Hồi Sinh của Đại bàng)
+function handleDeath() {
+    if (currentSkin === "EAGLE_MINI" && !hasRevivedThisMatch && skillCooldown === 0) {
+        sounds.skill();
+        bird.y = 200; // Đưa chim lên cao an toàn
+        bird.velocity = 0;
+        pipes = []; // Dọn sạch ống cống xung quanh cứu nguy
+        hasRevivedThisMatch = true;
+        skillCooldown = 60 * 60; // Bắt đầu đếm hồi sinh 60 giây tiếp theo
+        return;
     }
-    ctx.restore();
+    gameState = "GAMEOVER";
+    sounds.hit();
 }
 
-// --- ĐỒ HỌA TOÀN BỘ GAME ---
+// --- ĐỒ HỌA TRẬN ĐẤU ---
 function draw() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // 1. Vẽ nền
+    // 1. Vẽ nền thiên nhiên
     ctx.fillStyle = "#4ec0ca"; ctx.fillRect(0, 0, canvas.width, canvas.height);
     ctx.fillStyle = "#3caab5";
     for (let j = 0; j < 2; j++) {
@@ -334,140 +353,125 @@ function draw() {
         ctx.fillRect(currentBgX + 10, canvas.height - 180, 50, 135);
         ctx.fillRect(currentBgX + 80, canvas.height - 220, 70, 175);
         ctx.fillRect(currentBgX + 180, canvas.height - 160, 60, 115);
-        ctx.fillRect(currentBgX + 270, canvas.height - 240, 80, 195);
     }
 
     // 2. Vẽ Ống nước
     if (gameState === "PLAYING" || gameState === "GAMEOVER") {
         for (let i = 0; i < pipes.length; i++) {
             let p = pipes[i];
-            ctx.fillStyle = "#73bf2e"; ctx.strokeStyle = "#000"; ctx.lineWidth = 3;
-            ctx.fillRect(p.x, 0, PIPE_WIDTH, p.topHeight);
-            ctx.strokeRect(p.x, -5, PIPE_WIDTH, p.topHeight + 5);
-            ctx.fillRect(p.x - 4, p.topHeight - 24, PIPE_WIDTH + 8, 24);
-            ctx.strokeRect(p.x - 4, p.topHeight - 24, PIPE_WIDTH + 8, 24);
-
+            ctx.fillStyle = (currentSkin === "DARK_NIGHT" && activeSkillTimer > 0) ? "rgba(115,191,46,0.3)" : "#73bf2e"; // Ống trong suốt khi đang bất tử
+            ctx.strokeStyle = "#000"; ctx.lineWidth = 3;
+            ctx.fillRect(p.x, 0, PIPE_WIDTH, p.topHeight); ctx.strokeRect(p.x, -5, PIPE_WIDTH, p.topHeight + 5);
             let bY = p.topHeight + PIPE_GAP;
-            ctx.fillRect(p.x, bY, PIPE_WIDTH, canvas.height - bY);
-            ctx.strokeRect(p.x, bY, PIPE_WIDTH, canvas.height - bY + 5);
-            ctx.fillRect(p.x - 4, bY, PIPE_WIDTH + 8, 24);
-            ctx.strokeRect(p.x - 4, bY, PIPE_WIDTH + 8, 24);
+            ctx.fillRect(p.x, bY, PIPE_WIDTH, canvas.height - bY); ctx.strokeRect(p.x, bY, PIPE_WIDTH, canvas.height - bY + 5);
         }
     }
 
-    // 3. Vẽ Mặt Đất
+    // 3. Mặt đất
     ctx.fillStyle = "#ded895"; ctx.fillRect(0, canvas.height - 45, canvas.width, 45);
     ctx.fillStyle = "#54b031"; ctx.fillRect(0, canvas.height - 45, canvas.width, 12);
     ctx.fillStyle = "#000"; ctx.fillRect(0, canvas.height - 45, canvas.width, 3);
 
     function drawText(text, x, y, font, color = "#fff", align = "center") {
-        ctx.font = font; ctx.textAlign = align;
-        ctx.fillStyle = "#000"; ctx.fillText(text, x + 2, y + 2);
-        ctx.fillStyle = color; ctx.fillText(text, x, y);
+        ctx.font = font; ctx.textAlign = align; ctx.fillStyle = "#000"; ctx.fillText(text, x + 2, y + 2); ctx.fillStyle = color; ctx.fillText(text, x, y);
     }
-    
     function drawButton(btn, text, color = "#e67e22") {
         ctx.fillStyle = "#000"; ctx.fillRect(btn.x + 3, btn.y + 3, btn.w, btn.h);
         ctx.fillStyle = color; ctx.strokeStyle = "#000"; ctx.lineWidth = 3;
         ctx.fillRect(btn.x, btn.y, btn.w, btn.h); ctx.strokeRect(btn.x, btn.y, btn.w, btn.h);
-        drawText(text, btn.x + btn.w/2, btn.y + btn.h/2 + 6, "bold 15px 'Courier New'", "#fff");
+        drawText(text, btn.x + btn.w/2, btn.y + btn.h/2 + 5, "bold 13px 'Courier New'", "#fff");
     }
 
-    // Hiển thị số Xu tích lũy
-    if (gameState !== "PLAYING") {
-        drawText("🪙 XU: " + coins, 20, 40, "bold 18px 'Courier New'", "#f1c40f", "left");
-    }
+    if (gameState !== "PLAYING") drawText("🪙 XU: " + coins, 20, 40, "bold 18px 'Courier New'", "#f1c40f", "left");
 
     // ==========================================
-    // TRẠNG THÁI: TRANG CHỦ (MAIN_MENU)
+    // UI: TRANG CHỦ
     // ==========================================
     if (gameState === "MAIN_MENU") {
-        ctx.fillStyle = "rgba(0, 0, 0, 0.2)"; ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = "rgba(0, 0, 0, 0.15)"; ctx.fillRect(0, 0, canvas.width, canvas.height);
         drawText("FLAPPY BIRD", canvas.width / 2, 160, "bold 44px 'Courier New'", "#f1c40f");
-        drawText("SHOP & GIFTCODE", canvas.width / 2, 200, "bold 20px 'Courier New'", "#fff");
+        drawText("RPG STATS UPDATE", canvas.width / 2, 200, "bold 18px 'Courier New'", "#fff");
         drawText("KỶ LỤC: " + highScore, canvas.width / 2, 260, "bold 22px 'Courier New'", "#fff");
-
-        let demoY = 280 + Math.sin(Date.now() * 0.005) * 10;
-        drawBird(canvas.width / 2, demoY, 0, 15, currentSkin);
-
-        drawButton(BUTTONS.play, "VÀO CHƠI", "#2ecc71");
-        drawButton(BUTTONS.shop, "CỬA HÀNG", "#3498db");
+        drawBird(canvas.width / 2, 290, 0, 15, currentSkin);
+        drawButton(BUTTONS.play, "VÀO CHƠI", "#2ecc71"); drawButton(BUTTONS.shop, "TỦ ĐỒ", "#3498db");
     }
 
     // ==========================================
-    // TRẠNG THÁI: CỬA HÀNG & PHÒNG THAY ĐỒ (SKIN_SHOP)
+    // UI: CỬA HÀNG TRANG PHỤC & CHỈ SỐ
     // ==========================================
     else if (gameState === "SKIN_SHOP") {
         ctx.fillStyle = "rgba(0, 0, 0, 0.5)"; ctx.fillRect(0, 0, canvas.width, canvas.height);
-        drawText("CỬA HÀNG TRANG PHỤC", canvas.width / 2, 90, "bold 26px 'Courier New'", "#3498db");
+        drawText("CỬA HÀNG CHỈ SỐ", canvas.width / 2, 75, "bold 26px 'Courier New'", "#3498db");
 
-        let skinKeys = Object.keys(SKINS);
-        let activeKey = skinKeys[shopSelectIndex];
-        let activeSkin = SKINS[activeKey];
-        let isOwned = ownedSkins.includes(activeKey);
+        let skinKeys = Object.keys(SKINS); let activeKey = skinKeys[shopSelectIndex];
+        let activeSkin = SKINS[activeKey]; let isOwned = ownedSkins.includes(activeKey);
 
-        // Khung xem thử trước trang phục
+        // Khung Avatar xem thử
         ctx.fillStyle = "#2c3e50"; ctx.strokeStyle = "#fff"; ctx.lineWidth = 3;
-        ctx.fillRect(100, 130, 200, 140); ctx.strokeRect(100, 130, 200, 140);
+        ctx.fillRect(110, 110, 180, 120); ctx.strokeRect(110, 110, 180, 120);
+        drawBird(canvas.width / 2, 160, 0, 20, activeKey);
+        drawText(activeSkin.name, canvas.width / 2, 215, "bold 15px 'Courier New'", "#fff");
 
-        drawBird(canvas.width / 2, 185, 0, 20, activeKey);
-        drawText(activeSkin.name, canvas.width / 2, 250, "bold 16px 'Courier New'", "#fff");
+        drawButton(BUTTONS.prevSkin, "<", "#7f8c8d"); drawButton(BUTTONS.nextSkin, ">", "#7f8c8d");
 
-        // Mũi tên đổi mẫu
-        drawButton(BUTTONS.prevSkin, "<", "#7f8c8d");
-        drawButton(BUTTONS.nextSkin, ">", "#7f8c8d");
+        // HIỂN THỊ CHỈ SỐ VÀ KỸ NĂNG CỦA SKIN
+        drawText(activeSkin.desc, canvas.width / 2, 260, "bold 13px 'Courier New'", "#54b031");
+        ctx.font = "bold 11px 'Courier New'"; ctx.fillStyle = "#fff";
+        ctx.fillText(activeSkin.skillDesc, canvas.width / 2, 285);
 
-        // Logic hiển thị nút Mua thẳng hoặc Trang bị
         if (isOwned) {
             let isEquipped = (currentSkin === activeKey);
-            drawButton(BUTTONS.actionSkin, isEquipped ? "ĐANG SỬ DỤNG" : "TRANG BỊ", isEquipped ? "#2ecc71" : "#f39c12");
+            drawButton(BUTTONS.actionSkin, isEquipped ? "ĐANG DÙNG" : "TRANG BỊ", isEquipped ? "#2ecc71" : "#f39c12");
         } else {
-            // Hiển thị nút Mua thẳng đồng giá 30 xu
-            drawButton(BUTTONS.actionSkin, `MUA (${SKIN_COST} XU)`, "#e67e22");
+            drawButton(BUTTONS.actionSkin, `MUA (${activeSkin.cost} XU)`, "#e67e22");
         }
 
-        // --- KHU VỰC ĐỔI GIFTCODE ---
-        ctx.fillStyle = "rgba(255,255,255,0.08)";
-        ctx.fillRect(40, 395, 320, 105);
-        drawText("--- ĐỔI MÃ PHẦN THƯỞNG ---", canvas.width / 2, 420, "bold 14px 'Courier New'", "#aaa");
+        // BẢNG GIFTCODE
+        ctx.fillStyle = "rgba(255,255,255,0.06)"; ctx.fillRect(30, 400, 340, 110);
+        drawText("--- ĐỔI MÃ PHẦN THƯỞNG ---", canvas.width / 2, 425, "bold 13px 'Courier New'", "#aaa");
         drawButton(BUTTONS.giftcode, "🎟️ NHẬP GIFTCODE", "#9b59b6");
-        
-        // Thông báo đẩy
-        if (shopMessageText) {
-            drawText(shopMessageText, canvas.width / 2, 513, "bold 14px 'Courier New'", "#f1c40f");
-        }
+        if (shopMessageText) drawText(shopMessageText, canvas.width / 2, 523, "bold 13px 'Courier New'", "#f1c40f");
 
         drawButton(BUTTONS.back, "TRỞ VỀ", "#e74c3c");
     }
 
     // ==========================================
-    // TRẠNG THÁI: ĐANG CHƠI (PLAYING)
+    // UI: ĐANG CHƠI TRONG TRẬN
     // ==========================================
     else if (gameState === "PLAYING") {
+        // Tạo hiệu ứng phát sáng mờ khi kích hoạt bất tử/lướt chiêu
+        if (activeSkillTimer > 0) {
+            ctx.shadowBlur = 20; ctx.shadowColor = SKINS[currentSkin].color;
+        }
         drawBird(bird.x, bird.y, bird.angle, bird.radius, currentSkin);
+        ctx.shadowBlur = 0; // Trả lại shadow mặc định
+
         drawText(score, canvas.width / 2, 70, "bold 45px 'Courier New'");
+
+        // GIAO DIỆN NÚT KỸ NĂNG CHỦ ĐỘNG TRONG TRẬN
+        if (currentSkin === "ANGRY_RED" || currentSkin === "DARK_NIGHT") {
+            let btnColor = (skillCooldown > 0) ? "#7f8c8d" : "#9b59b6";
+            let label = "SKILL";
+            if (currentSkin === "ANGRY_RED") label = `LƯỚT (${skillCharges})`;
+            if (currentSkin === "DARK_NIGHT") label = "BẤT TỬ";
+            
+            if (skillCooldown > 0) label = Math.ceil(skillCooldown / 60) + "s"; // Hiện giây đếm ngược
+            if (activeSkillTimer > 0) label = "ACTIVE!"; // Đang hoạt động
+            
+            drawButton(BUTTONS.useSkill, label, btnColor);
+        } 
+        // Hiển thị trạng thái hồi sinh của Đại Bàng Mini
+        else if (currentSkin === "EAGLE_MINI") {
+            let label = "❤️ HỒI SINH SẴN SÀNG";
+            if (skillCooldown > 0) label = `💔 HỒI CHIÊU: ${Math.ceil(skillCooldown / 60)}s`;
+            drawText(label, canvas.width - 20, 35, "bold 12px 'Courier New'", (skillCooldown > 0) ? "#e74c3c" : "#2ecc71", "right");
+        }
     }
 
     // ==========================================
-    // TRẠNG THÁI: THUA CUỘC (GAMEOVER)
+    // UI: BÁO THUA
     // ==========================================
     else if (gameState === "GAMEOVER") {
         ctx.fillStyle = "rgba(0, 0, 0, 0.6)"; ctx.fillRect(0, 0, canvas.width, canvas.height);
-
         ctx.fillStyle = "#f4f1c3"; ctx.strokeStyle = "#543805"; ctx.lineWidth = 4;
-        ctx.fillRect(60, 180, 280, 180); ctx.strokeRect(60, 180, 280, 180);
-
-        drawText("GAME OVER", canvas.width / 2, 225, "bold 30px 'Courier New'", "#e74c3c");
-        drawText("ĐIỂM TRẬN: " + score, canvas.width / 2, 265, "bold 18px 'Courier New'", "#333");
-        drawText("🪙 KIẾM ĐƯỢC: +" + score + " XU", canvas.width / 2, 295, "bold 16px 'Courier New'", "#d35400");
-        drawText("KỶ LỤC: " + highScore, canvas.width / 2, 325, "bold 18px 'Courier New'", "#333");
-
-        drawText("CHẠM MÀN HÌNH ĐỂ VỀ TRANG CHỦ", canvas.width / 2, 410, "bold 15px 'Courier New'");
-    }
-}
-
-gameLoop();
-</script>
-
-</body>
-</html>
+        ctx.fillRect(60, 180,
