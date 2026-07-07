@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Flappy Bird - Gacha Skin Edition</title>
+    <title>Flappy Bird - Shop & Giftcode Edition</title>
     <style>
         body {
             margin: 0;
@@ -51,7 +51,7 @@ const sounds = {
     jump: () => playTone(400, "square", 0.08),
     score: () => { playTone(600, "sine", 0.05); setTimeout(() => playTone(900, "sine", 0.1), 50); },
     hit: () => playTone(150, "sawtooth", 0.25),
-    gacha: () => { playTone(300, "sine", 0.1); setTimeout(() => playTone(500, "sine", 0.1), 100); setTimeout(() => playTone(800, "sine", 0.3), 200); }
+    buy: () => { playTone(500, "sine", 0.08); setTimeout(() => playTone(700, "sine", 0.2), 80); }
 };
 
 // --- CẤU HÌNH VẬT LÝ ---
@@ -66,119 +66,132 @@ const PIPE_WIDTH = 65;
 let highScore = Number(localStorage.getItem("fb_highScore")) || 0;
 let coins = Number(localStorage.getItem("fb_coins")) || 0;
 let currentSkin = localStorage.getItem("fb_currentSkin") || "DEFAULT";
-// Danh sách các skin đã sở hữu (Mặc định luôn có skin gốc)
 let ownedSkins = JSON.parse(localStorage.getItem("fb_ownedSkins")) || ["DEFAULT"];
+// Kiểm tra xem đã dùng giftcode chưa
+let codeUsed = localStorage.getItem("fb_codeUsed_alibaba210") === "true";
 
-// --- TRẠNG THÁI GAME MỞ RỘNG ---
-// "MAIN_MENU": Trang chủ | "SKIN_SHOP": Phòng thay đồ | "PLAYING": Đang chơi | "GAMEOVER": Thua cuộc
+// --- TRẠNG THÁI GAME ---
 let gameState = "MAIN_MENU"; 
 let score = 0;
 let frameCount = 0;
 let bgX = 0;
 let pipes = [];
-let gachaResultText = ""; // Hiển thị tên skin vừa quay được
+let shopMessageText = ""; // Hiển thị thông báo trong shop (Mua thành công, sai code...)
 
 let bird = { x: 80, y: 250, radius: 13, velocity: 0, angle: 0 };
 
-// --- ĐỊNH NGHĨA HỆ THỐNG SKIN ---
+// --- ĐỊNH NGHĨA HỆ THỐNG SKIN (Đồng giá 30 xu theo yêu cầu) ---
 const SKINS = {
-    DEFAULT: { name: "Chim Gốc", cost: 0, color: "#f1c40f" },
-    ANGRY_RED: { name: "Angry Bird Đỏ", cost: 20, color: "#e74c3c" },
-    EAGLE_MINI: { name: "Đại Bàng Mini", cost: 20, color: "#7f8c8d" },
-    GOLDEN_BIRD: { name: "Chim Vàng Kim", cost: 20, color: "#f39c12" },
-    DARK_NIGHT: { name: "Hắc Diều Hâu", cost: 20, color: "#2c3e50" }
+    DEFAULT: { name: "Chim Gốc", color: "#f1c40f" },
+    ANGRY_RED: { name: "Angry Bird Đỏ", color: "#e74c3c" },
+    EAGLE_MINI: { name: "Đại Bàng Mini", color: "#7f8c8d" },
+    GOLDEN_BIRD: { name: "Chim Vàng Kim", color: "#f39c12" },
+    DARK_NIGHT: { name: "Hắc Diều Hâu", color: "#2c3e50" }
 };
+const SKIN_COST = 30; // Đồng giá 30 xu
 
-// --- ĐỊNH VỊ CÁC NÚT BẤM CẢM ỨNG TRÊN CANVAS ---
+// --- ĐỊNH VỊ NÚT BẤM TRÊN CANVAS ---
 const BUTTONS = {
     play: { x: 70, y: 340, w: 110, h: 45 },
     shop: { x: 220, y: 340, w: 110, h: 45 },
-    gacha: { x: 100, y: 440, w: 200, h: 45 },
-    back: { x: 130, y: 510, w: 140, h: 40 },
-    prevSkin: { x: 40, y: 245, w: 40, h: 40 },
-    nextSkin: { x: 320, y: 245, w: 40, h: 40 },
-    selectSkin: { x: 120, y: 310, w: 160, h: 40 }
+    back: { x: 130, y: 520, w: 140, h: 40 },
+    prevSkin: { x: 40, y: 225, w: 40, h: 40 },
+    nextSkin: { x: 320, y: 225, w: 40, h: 40 },
+    actionSkin: { x: 100, y: 320, w: 200, h: 45 }, // Nút gộp Trang bị / Mua skin
+    giftcode: { x: 100, y: 440, w: 200, h: 40 }   // Nút bấm mở hộp thoại nhập code
 };
-let shopSelectIndex = 0; // Chỉ mục skin đang xem trong shop
+let shopSelectIndex = 0;
 
 // --- XỬ LÝ SỰ KIỆN CLICK / CHẠM ---
 function handleInteraction(clientX, clientY) {
     if (audioCtx.state === 'suspended') audioCtx.resume();
     
-    // Lấy tọa độ chuột/chạm chuẩn tương đối trong Canvas
     const rect = canvas.getBoundingClientRect();
     const mx = (clientX - rect.left) * (canvas.width / rect.width);
     const my = (clientY - rect.top) * (canvas.height / rect.height);
 
-    // LOGIC CHO TRANG CHỦ (MAIN_MENU)
+    // TRANG CHỦ
     if (gameState === "MAIN_MENU") {
         if (checkInBtn(mx, my, BUTTONS.play)) {
             resetGame();
             gameState = "PLAYING";
         } else if (checkInBtn(mx, my, BUTTONS.shop)) {
-            gachaResultText = "";
-            // Tìm vị trí của skin hiện tại trong danh sách tổng để hiển thị đúng trong shop
+            shopMessageText = "";
             shopSelectIndex = Object.keys(SKINS).indexOf(currentSkin);
             gameState = "SKIN_SHOP";
         }
     } 
-    // LOGIC CHO PHÒNG THAY ĐỒ & GACHA (SKIN_SHOP)
+    // PHÒNG THAY ĐỒ & CỬA HÀNG MUA THẲNG
     else if (gameState === "SKIN_SHOP") {
         let skinKeys = Object.keys(SKINS);
-        
+        let activeKey = skinKeys[shopSelectIndex];
+        let isOwned = ownedSkins.includes(activeKey);
+
         if (checkInBtn(mx, my, BUTTONS.back)) {
             gameState = "MAIN_MENU";
         }
-        // Nút chuyển đổi xem skin
         else if (checkInBtn(mx, my, BUTTONS.prevSkin)) {
             shopSelectIndex = (shopSelectIndex - 1 + skinKeys.length) % skinKeys.length;
-            gachaResultText = "";
+            shopMessageText = "";
         } else if (checkInBtn(mx, my, BUTTONS.nextSkin)) {
             shopSelectIndex = (shopSelectIndex + 1) % skinKeys.length;
-            gachaResultText = "";
+            shopMessageText = "";
         }
-        // Nút Trang bị Trang phục
-        else if (checkInBtn(mx, my, BUTTONS.selectSkin)) {
-            let selectedKey = skinKeys[shopSelectIndex];
-            if (ownedSkins.includes(selectedKey)) {
-                currentSkin = selectedKey;
+        // Xử lý nút Hành Động (Mua hoặc Trang bị)
+        else if (checkInBtn(mx, my, BUTTONS.actionSkin)) {
+            if (isOwned) {
+                // Nếu đã sở hữu -> Trang bị
+                currentSkin = activeKey;
                 localStorage.setItem("fb_currentSkin", currentSkin);
+                shopMessageText = "Đã trang bị thành công!";
+            } else {
+                // Nếu chưa sở hữu -> Thực hiện MUA THẲNG 30 XU
+                if (coins >= SKIN_COST) {
+                    coins -= SKIN_COST;
+                    ownedSkins.push(activeKey);
+                    currentSkin = activeKey; // Tự động mặc luôn sau khi mua
+                    
+                    localStorage.setItem("fb_coins", coins);
+                    localStorage.setItem("fb_ownedSkins", JSON.stringify(ownedSkins));
+                    localStorage.setItem("fb_currentSkin", currentSkin);
+                    
+                    sounds.buy();
+                    shopMessageText = "Mua thành công & Đã trang bị!";
+                } else {
+                    shopMessageText = "Không đủ tiền! Cần " + SKIN_COST + " Xu.";
+                }
             }
         }
-        // Nút QUAY GACHA ngẫu nhiên giá 20 Xu
-        else if (checkInBtn(mx, my, BUTTONS.gacha)) {
-            if (coins >= 20) {
-                // Lọc ra danh sách các skin chưa sở hữu
-                let lockedSkins = skinKeys.filter(k => !ownedSkins.includes(k));
-                
-                if (lockedSkins.length > 0) {
-                    coins -= 20;
+        // Xử lý nút NHẬP GIFTCODE
+        else if (checkInBtn(mx, my, BUTTONS.giftcode)) {
+            if (codeUsed) {
+                shopMessageText = "Bạn đã dùng code này rồi!";
+                return;
+            }
+            // Sử dụng prompt có sẵn của trình duyệt để người chơi nhập code nhanh gọn
+            let inputCode = prompt("Nhập mã Giftcode của bạn tại đây:");
+            if (inputCode !== null) {
+                if (inputCode.trim() === "alibaba210") {
+                    coins += 10000;
+                    codeUsed = true;
                     localStorage.setItem("fb_coins", coins);
-                    sounds.gacha();
-                    
-                    // Quay ngẫu nhiên trúng 1 skin khóa
-                    let randomKey = lockedSkins[Math.floor(Math.random() * lockedSkins.length)];
-                    ownedSkins.push(randomKey);
-                    localStorage.setItem("fb_ownedSkins", JSON.stringify(ownedSkins));
-                    
-                    gachaResultText = "TRÚNG: " + SKINS[randomKey].name + "!";
-                    shopSelectIndex = skinKeys.indexOf(randomKey); // Nhảy thẳng đến skin vừa trúng
+                    localStorage.setItem("fb_codeUsed_alibaba210", "true");
+                    sounds.buy();
+                    shopMessageText = "Nhận thành công 10,000 Xu!";
                 } else {
-                    gachaResultText = "Bạn đã có TẤT CẢ các skin!";
+                    shopMessageText = "Mã Giftcode không chính xác!";
                 }
-            } else {
-                gachaResultText = "Không đủ Xu! Cần 20 Xu.";
             }
         }
     } 
-    // LOGIC KHI ĐANG CHƠI (PLAYING)
+    // ĐANG CHƠI
     else if (gameState === "PLAYING") {
         bird.velocity = JUMP;
         sounds.jump();
     } 
-    // LOGIC KHI THUA (GAMEOVER)
+    // THUA TRẬN
     else if (gameState === "GAMEOVER") {
-        gameState = "MAIN_MENU"; // Bấm vào bất kỳ đâu khi thua sẽ trả về Trang chủ
+        gameState = "MAIN_MENU";
     }
 }
 
@@ -186,14 +199,11 @@ function checkInBtn(mx, my, btn) {
     return mx >= btn.x && mx <= btn.x + btn.w && my >= btn.y && my <= btn.y + btn.h;
 }
 
-// Gắn sự kiện chuột trên PC
 canvas.addEventListener("mousedown", (e) => handleInteraction(e.clientX, e.clientY));
-// Gắn sự kiện chạm trên Điện thoại
 canvas.addEventListener("touchstart", (e) => {
     e.preventDefault();
     handleInteraction(e.touches[0].clientX, e.touches[0].clientY);
 }, { passive: false });
-// Lắng nghe phím Space riêng cho màn hình đang chơi
 document.addEventListener("keydown", (e) => {
     if (e.code === "Space" || e.code === "ArrowUp") {
         if (gameState === "PLAYING") { bird.velocity = JUMP; sounds.jump(); }
@@ -207,7 +217,7 @@ function resetGame() {
     frameCount = 0;
 }
 
-// --- THUẬT TOÁN VA CHẠM CHUẨN ---
+// --- THUẬT TOÁN VA CHẠM ---
 function circleRectCollision(cx, cy, r, rx, ry, rw, rh) {
     let closestX = Math.max(rx, Math.min(cx, rx + rw));
     let closestY = Math.max(ry, Math.min(cy, ry + rh));
@@ -223,7 +233,6 @@ function gameLoop() {
     requestAnimationFrame(gameLoop);
 }
 
-// --- XỬ LÝ LOGIC ---
 function update() {
     if (gameState !== "PLAYING") return;
 
@@ -257,10 +266,9 @@ function update() {
             sounds.hit();
         }
 
-        // TÍNH NĂNG TÍNH ĐIỂM + CỘNG 1 XU
         if (!p.scored && p.x + PIPE_WIDTH < bird.x - bird.radius) {
             score++;
-            coins++; // 1 điểm = 1 xu!
+            coins++; 
             p.scored = true;
             sounds.score();
             
@@ -275,7 +283,7 @@ function update() {
     pipes = pipes.filter(p => p.x + PIPE_WIDTH > 0);
 }
 
-// --- HÀM VẼ SKIN CHIM CHI TIẾT ---
+// --- HÀM VẼ SKIN CHIM ---
 function drawBird(x, y, angle, radius, skinKey) {
     ctx.save();
     ctx.translate(x, y);
@@ -286,57 +294,31 @@ function drawBird(x, y, angle, radius, skinKey) {
     let color = SKINS[skinKey].color;
 
     if (skinKey === "ANGRY_RED") {
-        // --- 🔴 SKIN ANGRY BIRD ĐỎ ---
         ctx.fillStyle = color;
         ctx.beginPath(); ctx.arc(0, 0, radius, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-        // Lông mày cau có màu đen đặc trưng
-        ctx.fillStyle = "#000";
-        ctx.fillRect(-2, -9, 12, 3.5);
-        // Mắt to dữ dằn
-        ctx.fillStyle = "#fff";
-        ctx.beginPath(); ctx.arc(4, -3, 4, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-        ctx.fillStyle = "#000";
-        ctx.beginPath(); ctx.arc(5, -3, 1.5, 0, Math.PI * 2); ctx.fill();
-        // Mỏ tam giác nhọn màu vàng
-        ctx.fillStyle = "#f1c40f";
-        ctx.beginPath(); ctx.moveTo(8, -1); ctx.lineTo(17, 2); ctx.lineTo(8, 5); ctx.closePath(); ctx.fill(); ctx.stroke();
+        ctx.fillStyle = "#000"; ctx.fillRect(-2, -9, 12, 3.5);
+        ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(4, -3, 4, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+        ctx.fillStyle = "#000"; ctx.beginPath(); ctx.arc(5, -3, 1.5, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#f1c40f"; ctx.beginPath(); ctx.moveTo(8, -1); ctx.lineTo(17, 2); ctx.lineTo(8, 5); ctx.closePath(); ctx.fill(); ctx.stroke();
     } 
     else if (skinKey === "EAGLE_MINI") {
-        // --- 🦅 SKIN ĐẠI BÀNG MINI ---
-        ctx.fillStyle = color; // Thân xám
-        ctx.beginPath(); ctx.arc(0, 0, radius, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-        // Đầu mào lông trắng phía sau và trên đỉnh
-        ctx.fillStyle = "#fff";
-        ctx.beginPath(); ctx.moveTo(-10, -5); ctx.lineTo(-15, -10); ctx.lineTo(-5, -11); ctx.lineTo(0, -14); ctx.lineTo(5, -10); ctx.closePath(); ctx.fill(); ctx.stroke();
-        // Mắt đại bàng ngầu sắc bén
-        ctx.fillStyle = "#fff";
-        ctx.beginPath(); ctx.arc(4, -3, 3.5, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-        ctx.fillStyle = "#000";
-        ctx.fillRect(2, -7, 4, 1.5); // Đường chân mày xếch
-        ctx.beginPath(); ctx.arc(4.5, -3, 1.5, 0, Math.PI * 2); ctx.fill();
-        // Mỏ quặp màu vàng của loài săn mồi
-        ctx.fillStyle = "#f39c12";
-        ctx.beginPath(); ctx.moveTo(8, -2); ctx.lineTo(16, 2); ctx.lineTo(11, 7); ctx.lineTo(8, 4); ctx.closePath(); ctx.fill(); ctx.stroke();
-    } 
-    else {
-        // --- CHIM GỐC, VÀNG KIM, HẮC DIỀU HÂU (Vẽ Form chuẩn) ---
         ctx.fillStyle = color;
         ctx.beginPath(); ctx.arc(0, 0, radius, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-        // Cánh chim nhấp nháy theo nhịp
-        ctx.fillStyle = "#fff";
-        ctx.beginPath();
+        ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.moveTo(-10, -5); ctx.lineTo(-15, -10); ctx.lineTo(-5, -11); ctx.lineTo(0, -14); ctx.lineTo(5, -10); ctx.closePath(); ctx.fill(); ctx.stroke();
+        ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(4, -3, 3.5, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+        ctx.fillStyle = "#000"; ctx.fillRect(2, -7, 4, 1.5); ctx.beginPath(); ctx.arc(4.5, -3, 1.5, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#f39c12"; ctx.beginPath(); ctx.moveTo(8, -2); ctx.lineTo(16, 2); ctx.lineTo(11, 7); ctx.lineTo(8, 4); ctx.closePath(); ctx.fill(); ctx.stroke();
+    } 
+    else {
+        ctx.fillStyle = color;
+        ctx.beginPath(); ctx.arc(0, 0, radius, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+        ctx.fillStyle = "#fff"; ctx.beginPath();
         let wingWave = (gameState === "PLAYING") ? Math.sin(frameCount * 0.4) * 3 : 0;
         ctx.ellipse(-5, 2, 7, 5 + wingWave/2, Math.PI/6, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-        // Mắt to tròn tinh nghịch
-        ctx.fillStyle = "#fff";
-        ctx.beginPath(); ctx.arc(5, -4, 5, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-        ctx.fillStyle = "#000";
-        ctx.beginPath(); ctx.arc(6.5, -4, 1.8, 0, Math.PI * 2); ctx.fill();
-        // Mỏ cam dày dặn
-        ctx.fillStyle = "#e67e22";
-        ctx.beginPath(); ctx.moveTo(11, -3); ctx.lineTo(20, 1); ctx.lineTo(11, 5); ctx.closePath(); ctx.fill(); ctx.stroke();
+        ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(5, -4, 5, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+        ctx.fillStyle = "#000"; ctx.beginPath(); ctx.arc(6.5, -4, 1.8, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#e67e22"; ctx.beginPath(); ctx.moveTo(11, -3); ctx.lineTo(20, 1); ctx.lineTo(11, 5); ctx.closePath(); ctx.fill(); ctx.stroke();
     }
-
     ctx.restore();
 }
 
@@ -344,7 +326,7 @@ function drawBird(x, y, angle, radius, skinKey) {
 function draw() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // 1. Vẽ Bầu trời & Nền thành phố cuộn
+    // 1. Vẽ nền
     ctx.fillStyle = "#4ec0ca"; ctx.fillRect(0, 0, canvas.width, canvas.height);
     ctx.fillStyle = "#3caab5";
     for (let j = 0; j < 2; j++) {
@@ -355,7 +337,7 @@ function draw() {
         ctx.fillRect(currentBgX + 270, canvas.height - 240, 80, 195);
     }
 
-    // 2. Vẽ Ống nước (Chỉ vẽ khi đang chơi hoặc báo thua)
+    // 2. Vẽ Ống nước
     if (gameState === "PLAYING" || gameState === "GAMEOVER") {
         for (let i = 0; i < pipes.length; i++) {
             let p = pipes[i];
@@ -373,95 +355,93 @@ function draw() {
         }
     }
 
-    // 3. Vẽ Mặt Đất cố định bên dưới
+    // 3. Vẽ Mặt Đất
     ctx.fillStyle = "#ded895"; ctx.fillRect(0, canvas.height - 45, canvas.width, 45);
     ctx.fillStyle = "#54b031"; ctx.fillRect(0, canvas.height - 45, canvas.width, 12);
     ctx.fillStyle = "#000"; ctx.fillRect(0, canvas.height - 45, canvas.width, 3);
 
-    // HÀM TIỆN ÍCH VẼ TEXT BÓNG ĐỔ
     function drawText(text, x, y, font, color = "#fff", align = "center") {
         ctx.font = font; ctx.textAlign = align;
         ctx.fillStyle = "#000"; ctx.fillText(text, x + 2, y + 2);
         ctx.fillStyle = color; ctx.fillText(text, x, y);
     }
-    // HÀM TIỆN ÍCH VẼ NÚT BẤM RETRO ĐẸP
+    
     function drawButton(btn, text, color = "#e67e22") {
-        ctx.fillStyle = "#000"; ctx.fillRect(btn.x + 3, btn.y + 3, btn.w, btn.h); // Bóng nút
+        ctx.fillStyle = "#000"; ctx.fillRect(btn.x + 3, btn.y + 3, btn.w, btn.h);
         ctx.fillStyle = color; ctx.strokeStyle = "#000"; ctx.lineWidth = 3;
         ctx.fillRect(btn.x, btn.y, btn.w, btn.h); ctx.strokeRect(btn.x, btn.y, btn.w, btn.h);
         drawText(text, btn.x + btn.w/2, btn.y + btn.h/2 + 6, "bold 15px 'Courier New'", "#fff");
     }
 
-    // --- HIỂN THỊ XU GÓC TRÊN MÀN HÌNH ---
+    // Hiển thị số Xu tích lũy
     if (gameState !== "PLAYING") {
-        drawText("🪙 SỐ XU: " + coins, 20, 40, "bold 18px 'Courier New'", "#f1c40f", "left");
+        drawText("🪙 XU: " + coins, 20, 40, "bold 18px 'Courier New'", "#f1c40f", "left");
     }
 
     // ==========================================
-    // TRẠNG THÁI 1: GIAO DIỆN TRANG CHỦ (MAIN_MENU)
+    // TRẠNG THÁI: TRANG CHỦ (MAIN_MENU)
     // ==========================================
     if (gameState === "MAIN_MENU") {
         ctx.fillStyle = "rgba(0, 0, 0, 0.2)"; ctx.fillRect(0, 0, canvas.width, canvas.height);
-        
         drawText("FLAPPY BIRD", canvas.width / 2, 160, "bold 44px 'Courier New'", "#f1c40f");
-        drawText("GACHA EDITION", canvas.width / 2, 200, "bold 20px 'Courier New'", "#fff");
+        drawText("SHOP & GIFTCODE", canvas.width / 2, 200, "bold 20px 'Courier New'", "#fff");
         drawText("KỶ LỤC: " + highScore, canvas.width / 2, 260, "bold 22px 'Courier New'", "#fff");
 
-        // Vẽ chim demo ở trang chủ bay bổng thư giãn
         let demoY = 280 + Math.sin(Date.now() * 0.005) * 10;
         drawBird(canvas.width / 2, demoY, 0, 15, currentSkin);
 
         drawButton(BUTTONS.play, "VÀO CHƠI", "#2ecc71");
-        drawButton(BUTTONS.shop, "TỦ ĐỒ", "#3498db");
+        drawButton(BUTTONS.shop, "CỬA HÀNG", "#3498db");
     }
 
     // ==========================================
-    // TRẠNG THÁI 2: PHÒNG THAY ĐỒ & QUAY SKIN (SKIN_SHOP)
+    // TRẠNG THÁI: CỬA HÀNG & PHÒNG THAY ĐỒ (SKIN_SHOP)
     // ==========================================
     else if (gameState === "SKIN_SHOP") {
         ctx.fillStyle = "rgba(0, 0, 0, 0.5)"; ctx.fillRect(0, 0, canvas.width, canvas.height);
-        
-        drawText("PHÒNG THAY ĐỒ", canvas.width / 2, 100, "bold 28px 'Courier New'", "#3498db");
+        drawText("CỬA HÀNG TRANG PHỤC", canvas.width / 2, 90, "bold 26px 'Courier New'", "#3498db");
 
         let skinKeys = Object.keys(SKINS);
         let activeKey = skinKeys[shopSelectIndex];
         let activeSkin = SKINS[activeKey];
         let isOwned = ownedSkins.includes(activeKey);
 
-        // Khung hiển thị skin đang xem
+        // Khung xem thử trước trang phục
         ctx.fillStyle = "#2c3e50"; ctx.strokeStyle = "#fff"; ctx.lineWidth = 3;
-        ctx.fillRect(100, 150, 200, 150); ctx.strokeRect(100, 150, 200, 150);
+        ctx.fillRect(100, 130, 200, 140); ctx.strokeRect(100, 130, 200, 140);
 
-        // Vẽ chim phóng to trong phòng trưng bày công phu
-        drawBird(canvas.width / 2, 210, 0, 20, activeKey);
-        drawText(activeSkin.name, canvas.width / 2, 280, "bold 16px 'Courier New'", "#fff");
+        drawBird(canvas.width / 2, 185, 0, 20, activeKey);
+        drawText(activeSkin.name, canvas.width / 2, 250, "bold 16px 'Courier New'", "#fff");
 
-        // Nút mũi tên qua lại trái phải
+        // Mũi tên đổi mẫu
         drawButton(BUTTONS.prevSkin, "<", "#7f8c8d");
         drawButton(BUTTONS.nextSkin, ">", "#7f8c8d");
 
-        // Kiểm tra xem đã sở hữu skin này chưa để đổi nhãn nút
+        // Logic hiển thị nút Mua thẳng hoặc Trang bị
         if (isOwned) {
             let isEquipped = (currentSkin === activeKey);
-            drawButton(BUTTONS.selectSkin, isEquipped ? "ĐANG DÙNG" : "TRANG BỊ", isEquipped ? "#2ecc71" : "#f39c12");
+            drawButton(BUTTONS.actionSkin, isEquipped ? "ĐANG SỬ DỤNG" : "TRANG BỊ", isEquipped ? "#2ecc71" : "#f39c12");
         } else {
-            drawButton(BUTTONS.selectSkin, "CHƯA SỞ HỮU", "#95a5a6");
+            // Hiển thị nút Mua thẳng đồng giá 30 xu
+            drawButton(BUTTONS.actionSkin, `MUA (${SKIN_COST} XU)`, "#e67e22");
         }
 
-        // VÙNG QUAY GACHA MAY RỦI
-        drawText("--- CỬA HÀNG MAY MẮN ---", canvas.width / 2, 400, "bold 14px 'Courier New'", "#aaa");
-        drawButton(BUTTONS.gacha, "🎰 QUAY GACHA (20 XU)", "#9b59b6");
+        // --- KHU VỰC ĐỔI GIFTCODE ---
+        ctx.fillStyle = "rgba(255,255,255,0.08)";
+        ctx.fillRect(40, 395, 320, 105);
+        drawText("--- ĐỔI MÃ PHẦN THƯỞNG ---", canvas.width / 2, 420, "bold 14px 'Courier New'", "#aaa");
+        drawButton(BUTTONS.giftcode, "🎟️ NHẬP GIFTCODE", "#9b59b6");
         
-        // Dòng thông báo kết quả quay thưởng
-        if (gachaResultText) {
-            drawText(gachaResultText, canvas.width / 2, 495, "bold 15px 'Courier New'", "#f1c40f");
+        // Thông báo đẩy
+        if (shopMessageText) {
+            drawText(shopMessageText, canvas.width / 2, 513, "bold 14px 'Courier New'", "#f1c40f");
         }
 
         drawButton(BUTTONS.back, "TRỞ VỀ", "#e74c3c");
     }
 
     // ==========================================
-    // TRẠNG THÁI 3: KHI ĐANG TRONG TRẬN ĐẤU (PLAYING)
+    // TRẠNG THÁI: ĐANG CHƠI (PLAYING)
     // ==========================================
     else if (gameState === "PLAYING") {
         drawBird(bird.x, bird.y, bird.angle, bird.radius, currentSkin);
@@ -469,7 +449,7 @@ function draw() {
     }
 
     // ==========================================
-    // TRẠNG THÁI 4: MÀN HÌNH BÁO THUA (GAMEOVER)
+    // TRẠNG THÁI: THUA CUỘC (GAMEOVER)
     // ==========================================
     else if (gameState === "GAMEOVER") {
         ctx.fillStyle = "rgba(0, 0, 0, 0.6)"; ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -479,14 +459,13 @@ function draw() {
 
         drawText("GAME OVER", canvas.width / 2, 225, "bold 30px 'Courier New'", "#e74c3c");
         drawText("ĐIỂM TRẬN: " + score, canvas.width / 2, 265, "bold 18px 'Courier New'", "#333");
-        drawText("🪙 ĐƯỢC CỘNG: +" + score + " XU", canvas.width / 2, 295, "bold 16px 'Courier New'", "#d35400");
+        drawText("🪙 THU HOẠCH: +" + score + " XU", canvas.width / 2, 295, "bold 16px 'Courier New'", "#d35400");
         drawText("KỶ LỤC: " + highScore, canvas.width / 2, 325, "bold 18px 'Courier New'", "#333");
 
-        drawText("CHẠM BẤT KỲ ĐÂU ĐỂ VỀ TRANG CHỦ", canvas.width / 2, 410, "bold 15px 'Courier New'");
+        drawText("CHẠM MÀN HÌNH ĐỂ VỀ TRANG CHỦ", canvas.width / 2, 410, "bold 15px 'Courier New'");
     }
 }
 
-// Bắt đầu vận hành game loop
 gameLoop();
 </script>
 
