@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Flappy Cat - Battle Cats Edition</title>
+    <title>Flappy Bird - Gacha Skin Edition</title>
     <style>
         body {
             margin: 0;
@@ -20,7 +20,6 @@
             border: 4px solid #333;
             box-shadow: 0 12px 36px rgba(0,0,0,0.7);
             background-color: #4ec0ca;
-            cursor: pointer;
         }
     </style>
 </head>
@@ -32,7 +31,7 @@
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
 
-// --- HỆ THỐNG ÂM THANH (Web Audio API) ---
+// --- HỆ THỐNG ÂM THANH SẠCH (Web Audio API) ---
 const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 function playTone(freq, type, duration) {
     try {
@@ -49,65 +48,160 @@ function playTone(freq, type, duration) {
     } catch(e) {}
 }
 const sounds = {
-    jump: () => playTone(450, "triangle", 0.08), // Tiếng kêu nghe "soft" hơn hợp với mèo
-    score: () => { playTone(550, "sine", 0.08); setTimeout(() => playTone(850, "sine", 0.12), 60); },
-    hit: () => playTone(120, "sawtooth", 0.25)
+    jump: () => playTone(400, "square", 0.08),
+    score: () => { playTone(600, "sine", 0.05); setTimeout(() => playTone(900, "sine", 0.1), 50); },
+    hit: () => playTone(150, "sawtooth", 0.25),
+    gacha: () => { playTone(300, "sine", 0.1); setTimeout(() => playTone(500, "sine", 0.1), 100); setTimeout(() => playTone(800, "sine", 0.3), 200); }
 };
 
-// --- CẤU HÌNH GAME ---
+// --- CẤU HÌNH VẬT LÝ ---
 const GRAVITY = 0.24;
 const JUMP = -5.0;
 const PIPE_SPEED = 2.2;
-const PIPE_GAP = 140; // Nới rộng một chút cho mèo dễ bay
+const PIPE_GAP = 135;
 const PIPE_SPAWN_RATE = 90;
 const PIPE_WIDTH = 65;
 
-// --- TRẠNG THÁI GAME ---
-let gameState = "START"; 
+// --- DỮ LIỆU ĐƯỢC LƯU TRỮ (localStorage) ---
+let highScore = Number(localStorage.getItem("fb_highScore")) || 0;
+let coins = Number(localStorage.getItem("fb_coins")) || 0;
+let currentSkin = localStorage.getItem("fb_currentSkin") || "DEFAULT";
+// Danh sách các skin đã sở hữu (Mặc định luôn có skin gốc)
+let ownedSkins = JSON.parse(localStorage.getItem("fb_ownedSkins")) || ["DEFAULT"];
+
+// --- TRẠNG THÁI GAME MỞ RỘNG ---
+// "MAIN_MENU": Trang chủ | "SKIN_SHOP": Phòng thay đồ | "PLAYING": Đang chơi | "GAMEOVER": Thua cuộc
+let gameState = "MAIN_MENU"; 
 let score = 0;
-let highScore = Number(localStorage.getItem("fb_highScore")) || 0; 
 let frameCount = 0;
 let bgX = 0;
 let pipes = [];
+let gachaResultText = ""; // Hiển thị tên skin vừa quay được
 
-let cat = {
-    x: 80,
-    y: 250,
-    radius: 15, // Tăng nhẹ kích thước cho mèo tròn trịa béo ú
-    velocity: 0,
-    angle: 0
+let bird = { x: 80, y: 250, radius: 13, velocity: 0, angle: 0 };
+
+// --- ĐỊNH NGHĨA HỆ THỐNG SKIN ---
+const SKINS = {
+    DEFAULT: { name: "Chim Gốc", cost: 0, color: "#f1c40f" },
+    ANGRY_RED: { name: "Angry Bird Đỏ", cost: 20, color: "#e74c3c" },
+    EAGLE_MINI: { name: "Đại Bàng Mini", cost: 20, color: "#7f8c8d" },
+    GOLDEN_BIRD: { name: "Chim Vàng Kim", cost: 20, color: "#f39c12" },
+    DARK_NIGHT: { name: "Hắc Diều Hâu", cost: 20, color: "#2c3e50" }
 };
 
-// --- SỰ KIỆN ĐIỀU KHIỂN ---
-function handleAction(e) {
-    if (e) e.preventDefault();
-    if (audioCtx.state === 'suspended') audioCtx.resume();
+// --- ĐỊNH VỊ CÁC NÚT BẤM CẢM ỨNG TRÊN CANVAS ---
+const BUTTONS = {
+    play: { x: 70, y: 340, w: 110, h: 45 },
+    shop: { x: 220, y: 340, w: 110, h: 45 },
+    gacha: { x: 100, y: 440, w: 200, h: 45 },
+    back: { x: 130, y: 510, w: 140, h: 40 },
+    prevSkin: { x: 40, y: 245, w: 40, h: 40 },
+    nextSkin: { x: 320, y: 245, w: 40, h: 40 },
+    selectSkin: { x: 120, y: 310, w: 160, h: 40 }
+};
+let shopSelectIndex = 0; // Chỉ mục skin đang xem trong shop
 
-    if (gameState === "START") {
-        gameState = "PLAYING";
-        cat.velocity = JUMP;
+// --- XỬ LÝ SỰ KIỆN CLICK / CHẠM ---
+function handleInteraction(clientX, clientY) {
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    
+    // Lấy tọa độ chuột/chạm chuẩn tương đối trong Canvas
+    const rect = canvas.getBoundingClientRect();
+    const mx = (clientX - rect.left) * (canvas.width / rect.width);
+    const my = (clientY - rect.top) * (canvas.height / rect.height);
+
+    // LOGIC CHO TRANG CHỦ (MAIN_MENU)
+    if (gameState === "MAIN_MENU") {
+        if (checkInBtn(mx, my, BUTTONS.play)) {
+            resetGame();
+            gameState = "PLAYING";
+        } else if (checkInBtn(mx, my, BUTTONS.shop)) {
+            gachaResultText = "";
+            // Tìm vị trí của skin hiện tại trong danh sách tổng để hiển thị đúng trong shop
+            shopSelectIndex = Object.keys(SKINS).indexOf(currentSkin);
+            gameState = "SKIN_SHOP";
+        }
+    } 
+    // LOGIC CHO PHÒNG THAY ĐỒ & GACHA (SKIN_SHOP)
+    else if (gameState === "SKIN_SHOP") {
+        let skinKeys = Object.keys(SKINS);
+        
+        if (checkInBtn(mx, my, BUTTONS.back)) {
+            gameState = "MAIN_MENU";
+        }
+        // Nút chuyển đổi xem skin
+        else if (checkInBtn(mx, my, BUTTONS.prevSkin)) {
+            shopSelectIndex = (shopSelectIndex - 1 + skinKeys.length) % skinKeys.length;
+            gachaResultText = "";
+        } else if (checkInBtn(mx, my, BUTTONS.nextSkin)) {
+            shopSelectIndex = (shopSelectIndex + 1) % skinKeys.length;
+            gachaResultText = "";
+        }
+        // Nút Trang bị Trang phục
+        else if (checkInBtn(mx, my, BUTTONS.selectSkin)) {
+            let selectedKey = skinKeys[shopSelectIndex];
+            if (ownedSkins.includes(selectedKey)) {
+                currentSkin = selectedKey;
+                localStorage.setItem("fb_currentSkin", currentSkin);
+            }
+        }
+        // Nút QUAY GACHA ngẫu nhiên giá 20 Xu
+        else if (checkInBtn(mx, my, BUTTONS.gacha)) {
+            if (coins >= 20) {
+                // Lọc ra danh sách các skin chưa sở hữu
+                let lockedSkins = skinKeys.filter(k => !ownedSkins.includes(k));
+                
+                if (lockedSkins.length > 0) {
+                    coins -= 20;
+                    localStorage.setItem("fb_coins", coins);
+                    sounds.gacha();
+                    
+                    // Quay ngẫu nhiên trúng 1 skin khóa
+                    let randomKey = lockedSkins[Math.floor(Math.random() * lockedSkins.length)];
+                    ownedSkins.push(randomKey);
+                    localStorage.setItem("fb_ownedSkins", JSON.stringify(ownedSkins));
+                    
+                    gachaResultText = "TRÚNG: " + SKINS[randomKey].name + "!";
+                    shopSelectIndex = skinKeys.indexOf(randomKey); // Nhảy thẳng đến skin vừa trúng
+                } else {
+                    gachaResultText = "Bạn đã có TẤT CẢ các skin!";
+                }
+            } else {
+                gachaResultText = "Không đủ Xu! Cần 20 Xu.";
+            }
+        }
+    } 
+    // LOGIC KHI ĐANG CHƠI (PLAYING)
+    else if (gameState === "PLAYING") {
+        bird.velocity = JUMP;
         sounds.jump();
-    } else if (gameState === "PLAYING") {
-        cat.velocity = JUMP;
-        sounds.jump();
-    } else if (gameState === "GAMEOVER") {
-        resetGame();
-        gameState = "PLAYING";
+    } 
+    // LOGIC KHI THUA (GAMEOVER)
+    else if (gameState === "GAMEOVER") {
+        gameState = "MAIN_MENU"; // Bấm vào bất kỳ đâu khi thua sẽ trả về Trang chủ
     }
 }
 
-document.addEventListener("keydown", (e) => { if (e.code === "Space" || e.code === "ArrowUp") handleAction(); });
-canvas.addEventListener("mousedown", handleAction);
-canvas.addEventListener("touchstart", handleAction, { passive: false });
+function checkInBtn(mx, my, btn) {
+    return mx >= btn.x && mx <= btn.x + btn.w && my >= btn.y && my <= btn.y + btn.h;
+}
+
+// Gắn sự kiện chuột trên PC
+canvas.addEventListener("mousedown", (e) => handleInteraction(e.clientX, e.clientY));
+// Gắn sự kiện chạm trên Điện thoại
+canvas.addEventListener("touchstart", (e) => {
+    e.preventDefault();
+    handleInteraction(e.touches[0].clientX, e.touches[0].clientY);
+}, { passive: false });
+// Lắng nghe phím Space riêng cho màn hình đang chơi
+document.addEventListener("keydown", (e) => {
+    if (e.code === "Space" || e.code === "ArrowUp") {
+        if (gameState === "PLAYING") { bird.velocity = JUMP; sounds.jump(); }
+    }
+});
 
 function resetGame() {
-    cat = {
-        x: 80,
-        y: 250,
-        radius: 15,
-        velocity: 0,
-        angle: 0
-    };
+    bird = { x: 80, y: 250, radius: 13, velocity: 0, angle: 0 };
     pipes = [];
     score = 0;
     frameCount = 0;
@@ -117,14 +211,12 @@ function resetGame() {
 function circleRectCollision(cx, cy, r, rx, ry, rw, rh) {
     let closestX = Math.max(rx, Math.min(cx, rx + rw));
     let closestY = Math.max(ry, Math.min(cy, ry + rh));
-
     let dx = cx - closestX;
     let dy = cy - closestY;
-
     return (dx * dx + dy * dy) < (r * r);
 }
 
-// --- VÒNG LẶP CHÍNH ---
+// --- VÒNG LẶP GAME ---
 function gameLoop() {
     update();
     draw();
@@ -138,41 +230,41 @@ function update() {
     bgX -= 0.6;
     if (bgX <= -canvas.width) bgX = 0;
 
-    cat.velocity += GRAVITY;
-    cat.y += cat.velocity;
-    
-    // Mèo The Battle Cats bay kiểu tinh nghịch nên giảm bớt góc chúi đầu sâu
-    cat.angle = Math.min(Math.PI / 4, Math.max(-Math.PI / 8, cat.velocity * 0.06));
+    bird.velocity += GRAVITY;
+    bird.y += bird.velocity;
+    bird.angle = Math.min(Math.PI / 3, Math.max(-Math.PI / 7, bird.velocity * 0.09));
 
-    if (cat.y + cat.radius >= canvas.height - 45 || cat.y - cat.radius <= 0) {
-        triggerGameOver();
+    if (bird.y + bird.radius >= canvas.height - 45 || bird.y - bird.radius <= 0) {
+        gameState = "GAMEOVER";
+        sounds.hit();
     }
 
     frameCount++;
     if (frameCount % PIPE_SPAWN_RATE === 0) {
         let topHeight = Math.floor(Math.random() * (canvas.height - PIPE_GAP - 160)) + 60;
-        pipes.push({
-            x: canvas.width,
-            topHeight: topHeight,
-            scored: false
-        });
+        pipes.push({ x: canvas.width, topHeight: topHeight, scored: false });
     }
 
     for (let i = 0; i < pipes.length; i++) {
         let p = pipes[i];
         p.x -= PIPE_SPEED;
 
-        let hitTop = circleRectCollision(cat.x, cat.y, cat.radius, p.x, 0, PIPE_WIDTH, p.topHeight);
-        let hitBottom = circleRectCollision(cat.x, cat.y, cat.radius, p.x, p.topHeight + PIPE_GAP, PIPE_WIDTH, canvas.height - (p.topHeight + PIPE_GAP));
+        let hitTop = circleRectCollision(bird.x, bird.y, bird.radius, p.x, 0, PIPE_WIDTH, p.topHeight);
+        let hitBottom = circleRectCollision(bird.x, bird.y, bird.radius, p.x, p.topHeight + PIPE_GAP, PIPE_WIDTH, canvas.height - (p.topHeight + PIPE_GAP));
 
         if (hitTop || hitBottom) {
-            triggerGameOver();
+            gameState = "GAMEOVER";
+            sounds.hit();
         }
 
-        if (!p.scored && p.x + PIPE_WIDTH < cat.x - cat.radius) {
+        // TÍNH NĂNG TÍNH ĐIỂM + CỘNG 1 XU
+        if (!p.scored && p.x + PIPE_WIDTH < bird.x - bird.radius) {
             score++;
+            coins++; // 1 điểm = 1 xu!
             p.scored = true;
             sounds.score();
+            
+            localStorage.setItem("fb_coins", coins);
             if (score > highScore) {
                 highScore = score;
                 localStorage.setItem("fb_highScore", highScore);
@@ -183,19 +275,77 @@ function update() {
     pipes = pipes.filter(p => p.x + PIPE_WIDTH > 0);
 }
 
-function triggerGameOver() {
-    gameState = "GAMEOVER";
-    sounds.hit();
+// --- HÀM VẼ SKIN CHIM CHI TIẾT ---
+function drawBird(x, y, angle, radius, skinKey) {
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(angle);
+    ctx.lineWidth = 2.5;
+    ctx.strokeStyle = "#000";
+
+    let color = SKINS[skinKey].color;
+
+    if (skinKey === "ANGRY_RED") {
+        // --- 🔴 SKIN ANGRY BIRD ĐỎ ---
+        ctx.fillStyle = color;
+        ctx.beginPath(); ctx.arc(0, 0, radius, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+        // Lông mày cau có màu đen đặc trưng
+        ctx.fillStyle = "#000";
+        ctx.fillRect(-2, -9, 12, 3.5);
+        // Mắt to dữ dằn
+        ctx.fillStyle = "#fff";
+        ctx.beginPath(); ctx.arc(4, -3, 4, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+        ctx.fillStyle = "#000";
+        ctx.beginPath(); ctx.arc(5, -3, 1.5, 0, Math.PI * 2); ctx.fill();
+        // Mỏ tam giác nhọn màu vàng
+        ctx.fillStyle = "#f1c40f";
+        ctx.beginPath(); ctx.moveTo(8, -1); ctx.lineTo(17, 2); ctx.lineTo(8, 5); ctx.closePath(); ctx.fill(); ctx.stroke();
+    } 
+    else if (skinKey === "EAGLE_MINI") {
+        // --- 🦅 SKIN ĐẠI BÀNG MINI ---
+        ctx.fillStyle = color; // Thân xám
+        ctx.beginPath(); ctx.arc(0, 0, radius, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+        // Đầu mào lông trắng phía sau và trên đỉnh
+        ctx.fillStyle = "#fff";
+        ctx.beginPath(); ctx.moveTo(-10, -5); ctx.lineTo(-15, -10); ctx.lineTo(-5, -11); ctx.lineTo(0, -14); ctx.lineTo(5, -10); ctx.closePath(); ctx.fill(); ctx.stroke();
+        // Mắt đại bàng ngầu sắc bén
+        ctx.fillStyle = "#fff";
+        ctx.beginPath(); ctx.arc(4, -3, 3.5, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+        ctx.fillStyle = "#000";
+        ctx.fillRect(2, -7, 4, 1.5); // Đường chân mày xếch
+        ctx.beginPath(); ctx.arc(4.5, -3, 1.5, 0, Math.PI * 2); ctx.fill();
+        // Mỏ quặp màu vàng của loài săn mồi
+        ctx.fillStyle = "#f39c12";
+        ctx.beginPath(); ctx.moveTo(8, -2); ctx.lineTo(16, 2); ctx.lineTo(11, 7); ctx.lineTo(8, 4); ctx.closePath(); ctx.fill(); ctx.stroke();
+    } 
+    else {
+        // --- CHIM GỐC, VÀNG KIM, HẮC DIỀU HÂU (Vẽ Form chuẩn) ---
+        ctx.fillStyle = color;
+        ctx.beginPath(); ctx.arc(0, 0, radius, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+        // Cánh chim nhấp nháy theo nhịp
+        ctx.fillStyle = "#fff";
+        ctx.beginPath();
+        let wingWave = (gameState === "PLAYING") ? Math.sin(frameCount * 0.4) * 3 : 0;
+        ctx.ellipse(-5, 2, 7, 5 + wingWave/2, Math.PI/6, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+        // Mắt to tròn tinh nghịch
+        ctx.fillStyle = "#fff";
+        ctx.beginPath(); ctx.arc(5, -4, 5, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+        ctx.fillStyle = "#000";
+        ctx.beginPath(); ctx.arc(6.5, -4, 1.8, 0, Math.PI * 2); ctx.fill();
+        // Mỏ cam dày dặn
+        ctx.fillStyle = "#e67e22";
+        ctx.beginPath(); ctx.moveTo(11, -3); ctx.lineTo(20, 1); ctx.lineTo(11, 5); ctx.closePath(); ctx.fill(); ctx.stroke();
+    }
+
+    ctx.restore();
 }
 
-// --- ĐỒ HỌA (VẼ MÈO THE BATTLE CATS) ---
+// --- ĐỒ HỌA TOÀN BỘ GAME ---
 function draw() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // 1. Vẽ bầu trời & Nền thành phố
-    ctx.fillStyle = "#4ec0ca"; 
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    
+    // 1. Vẽ Bầu trời & Nền thành phố cuộn
+    ctx.fillStyle = "#4ec0ca"; ctx.fillRect(0, 0, canvas.width, canvas.height);
     ctx.fillStyle = "#3caab5";
     for (let j = 0; j < 2; j++) {
         let currentBgX = bgX + (j * canvas.width);
@@ -205,147 +355,138 @@ function draw() {
         ctx.fillRect(currentBgX + 270, canvas.height - 240, 80, 195);
     }
 
-    // 2. Vẽ Ống nước
-    for (let i = 0; i < pipes.length; i++) {
-        let p = pipes[i];
-        ctx.fillStyle = "#73bf2e";
-        ctx.strokeStyle = "#000";
-        ctx.lineWidth = 3;
+    // 2. Vẽ Ống nước (Chỉ vẽ khi đang chơi hoặc báo thua)
+    if (gameState === "PLAYING" || gameState === "GAMEOVER") {
+        for (let i = 0; i < pipes.length; i++) {
+            let p = pipes[i];
+            ctx.fillStyle = "#73bf2e"; ctx.strokeStyle = "#000"; ctx.lineWidth = 3;
+            ctx.fillRect(p.x, 0, PIPE_WIDTH, p.topHeight);
+            ctx.strokeRect(p.x, -5, PIPE_WIDTH, p.topHeight + 5);
+            ctx.fillRect(p.x - 4, p.topHeight - 24, PIPE_WIDTH + 8, 24);
+            ctx.strokeRect(p.x - 4, p.topHeight - 24, PIPE_WIDTH + 8, 24);
 
-        ctx.fillRect(p.x, 0, PIPE_WIDTH, p.topHeight);
-        ctx.strokeRect(p.x, -5, PIPE_WIDTH, p.topHeight + 5);
-        ctx.fillStyle = "#98e342"; 
-        ctx.fillRect(p.x + 5, 0, 10, p.topHeight);
+            let bY = p.topHeight + PIPE_GAP;
+            ctx.fillRect(p.x, bY, PIPE_WIDTH, canvas.height - bY);
+            ctx.strokeRect(p.x, bY, PIPE_WIDTH, canvas.height - bY + 5);
+            ctx.fillRect(p.x - 4, bY, PIPE_WIDTH + 8, 24);
+            ctx.strokeRect(p.x - 4, bY, PIPE_WIDTH + 8, 24);
+        }
+    }
+
+    // 3. Vẽ Mặt Đất cố định bên dưới
+    ctx.fillStyle = "#ded895"; ctx.fillRect(0, canvas.height - 45, canvas.width, 45);
+    ctx.fillStyle = "#54b031"; ctx.fillRect(0, canvas.height - 45, canvas.width, 12);
+    ctx.fillStyle = "#000"; ctx.fillRect(0, canvas.height - 45, canvas.width, 3);
+
+    // HÀM TIỆN ÍCH VẼ TEXT BÓNG ĐỔ
+    function drawText(text, x, y, font, color = "#fff", align = "center") {
+        ctx.font = font; ctx.textAlign = align;
+        ctx.fillStyle = "#000"; ctx.fillText(text, x + 2, y + 2);
+        ctx.fillStyle = color; ctx.fillText(text, x, y);
+    }
+    // HÀM TIỆN ÍCH VẼ NÚT BẤM RETRO ĐẸP
+    function drawButton(btn, text, color = "#e67e22") {
+        ctx.fillStyle = "#000"; ctx.fillRect(btn.x + 3, btn.y + 3, btn.w, btn.h); // Bóng nút
+        ctx.fillStyle = color; ctx.strokeStyle = "#000"; ctx.lineWidth = 3;
+        ctx.fillRect(btn.x, btn.y, btn.w, btn.h); ctx.strokeRect(btn.x, btn.y, btn.w, btn.h);
+        drawText(text, btn.x + btn.w/2, btn.y + btn.h/2 + 6, "bold 15px 'Courier New'", "#fff");
+    }
+
+    // --- HIỂN THỊ XU GÓC TRÊN MÀN HÌNH ---
+    if (gameState !== "PLAYING") {
+        drawText("🪙 SỐ XU: " + coins, 20, 40, "bold 18px 'Courier New'", "#f1c40f", "left");
+    }
+
+    // ==========================================
+    // TRẠNG THÁI 1: GIAO DIỆN TRANG CHỦ (MAIN_MENU)
+    // ==========================================
+    if (gameState === "MAIN_MENU") {
+        ctx.fillStyle = "rgba(0, 0, 0, 0.2)"; ctx.fillRect(0, 0, canvas.width, canvas.height);
         
-        ctx.fillStyle = "#73bf2e";
-        ctx.fillRect(p.x - 4, p.topHeight - 24, PIPE_WIDTH + 8, 24);
-        ctx.strokeRect(p.x - 4, p.topHeight - 24, PIPE_WIDTH + 8, 24);
+        drawText("FLAPPY BIRD", canvas.width / 2, 160, "bold 44px 'Courier New'", "#f1c40f");
+        drawText("GACHA EDITION", canvas.width / 2, 200, "bold 20px 'Courier New'", "#fff");
+        drawText("KỶ LỤC: " + highScore, canvas.width / 2, 260, "bold 22px 'Courier New'", "#fff");
 
-        let bY = p.topHeight + PIPE_GAP;
-        ctx.fillStyle = "#73bf2e";
-        ctx.fillRect(p.x, bY, PIPE_WIDTH, canvas.height - bY);
-        ctx.strokeRect(p.x, bY, PIPE_WIDTH, canvas.height - bY + 5);
+        // Vẽ chim demo ở trang chủ bay bổng thư giãn
+        let demoY = 280 + Math.sin(Date.now() * 0.005) * 10;
+        drawBird(canvas.width / 2, demoY, 0, 15, currentSkin);
+
+        drawButton(BUTTONS.play, "VÀO CHƠI", "#2ecc71");
+        drawButton(BUTTONS.shop, "TỦ ĐỒ", "#3498db");
+    }
+
+    // ==========================================
+    // TRẠNG THÁI 2: PHÒNG THAY ĐỒ & QUAY SKIN (SKIN_SHOP)
+    // ==========================================
+    else if (gameState === "SKIN_SHOP") {
+        ctx.fillStyle = "rgba(0, 0, 0, 0.5)"; ctx.fillRect(0, 0, canvas.width, canvas.height);
         
-        ctx.fillRect(p.x - 4, bY, PIPE_WIDTH + 8, 24);
-        ctx.strokeRect(p.x - 4, bY, PIPE_WIDTH + 8, 24);
+        drawText("PHÒNG THAY ĐỒ", canvas.width / 2, 100, "bold 28px 'Courier New'", "#3498db");
+
+        let skinKeys = Object.keys(SKINS);
+        let activeKey = skinKeys[shopSelectIndex];
+        let activeSkin = SKINS[activeKey];
+        let isOwned = ownedSkins.includes(activeKey);
+
+        // Khung hiển thị skin đang xem
+        ctx.fillStyle = "#2c3e50"; ctx.strokeStyle = "#fff"; ctx.lineWidth = 3;
+        ctx.fillRect(100, 150, 200, 150); ctx.strokeRect(100, 150, 200, 150);
+
+        // Vẽ chim phóng to trong phòng trưng bày công phu
+        drawBird(canvas.width / 2, 210, 0, 20, activeKey);
+        drawText(activeSkin.name, canvas.width / 2, 280, "bold 16px 'Courier New'", "#fff");
+
+        // Nút mũi tên qua lại trái phải
+        drawButton(BUTTONS.prevSkin, "<", "#7f8c8d");
+        drawButton(BUTTONS.nextSkin, ">", "#7f8c8d");
+
+        // Kiểm tra xem đã sở hữu skin này chưa để đổi nhãn nút
+        if (isOwned) {
+            let isEquipped = (currentSkin === activeKey);
+            drawButton(BUTTONS.selectSkin, isEquipped ? "ĐANG DÙNG" : "TRANG BỊ", isEquipped ? "#2ecc71" : "#f39c12");
+        } else {
+            drawButton(BUTTONS.selectSkin, "CHƯA SỞ HỮU", "#95a5a6");
+        }
+
+        // VÙNG QUAY GACHA MAY RỦI
+        drawText("--- CỬA HÀNG MAY MẮN ---", canvas.width / 2, 400, "bold 14px 'Courier New'", "#aaa");
+        drawButton(BUTTONS.gacha, "🎰 QUAY GACHA (20 XU)", "#9b59b6");
+        
+        // Dòng thông báo kết quả quay thưởng
+        if (gachaResultText) {
+            drawText(gachaResultText, canvas.width / 2, 495, "bold 15px 'Courier New'", "#f1c40f");
+        }
+
+        drawButton(BUTTONS.back, "TRỞ VỀ", "#e74c3c");
     }
 
-    // 3. Vẽ Mặt Đất
-    ctx.fillStyle = "#ded895";
-    ctx.fillRect(0, canvas.height - 45, canvas.width, 45);
-    ctx.fillStyle = "#54b031"; 
-    ctx.fillRect(0, canvas.height - 45, canvas.width, 12);
-    ctx.fillStyle = "#000";
-    ctx.fillRect(0, canvas.height - 45, canvas.width, 3);
-
-    // 4. VẼ MÈO BATTLE CATS (Vẽ tay vector chi tiết)
-    ctx.save();
-    ctx.translate(cat.x, cat.y);
-    ctx.rotate(cat.angle);
-    
-    ctx.lineWidth = 2.5;
-    ctx.strokeStyle = "#000";
-    ctx.lineCap = "round";
-
-    // --- Vẽ Tai Mèo (Vẽ trước để thân đè lên chân tai) ---
-    ctx.fillStyle = "#fbfbf6"; // Màu trắng sữa nguyên bản của Mèo Battle Cat
-    // Tai Trái
-    ctx.beginPath();
-    ctx.moveTo(-11, -9);
-    ctx.lineTo(-13, -21);
-    ctx.lineTo(-3, -14);
-    ctx.closePath();
-    ctx.fill(); ctx.stroke();
-    // Tai Phải
-    ctx.beginPath();
-    ctx.moveTo(3, -14);
-    ctx.lineTo(7, -21);
-    ctx.lineTo(11, -9);
-    ctx.closePath();
-    ctx.fill(); ctx.stroke();
-
-    // --- Thân Mèo (Tròn xoe) ---
-    ctx.fillStyle = "#fbfbf6";
-    ctx.beginPath();
-    ctx.arc(0, 0, cat.radius, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.stroke();
-
-    // --- Khuôn mặt đặc trưng của The Battle Cats (='-'=) ---
-    // Mắt híp trái (Đoạn thẳng chéo nhỏ)
-    ctx.beginPath();
-    ctx.moveTo(1, -3);
-    ctx.lineTo(4, -1);
-    ctx.stroke();
-    
-    // Mắt híp phải
-    ctx.beginPath();
-    ctx.moveTo(9, -3);
-    ctx.lineTo(6, -1);
-    ctx.stroke();
-
-    // Mũi/Miệng râu (Dấu gạch ngang đơ đơ tinh nghịch)
-    ctx.beginPath();
-    ctx.moveTo(4, 2);
-    ctx.lineTo(6, 2);
-    ctx.stroke();
-
-    // --- Chân Mèo (2 đốm nhỏ lúc lắc theo frameCount) ---
-    ctx.fillStyle = "#fbfbf6";
-    let legOffset = Math.sin(frameCount * 0.5) * 2;
-    // Chân trước
-    ctx.beginPath();
-    ctx.arc(-5, cat.radius - 1 + legOffset, 4, 0, Math.PI * 2);
-    ctx.fill(); ctx.stroke();
-    // Chân sau
-    ctx.beginPath();
-    ctx.arc(4, cat.radius - 1 - legOffset, 4, 0, Math.PI * 2);
-    ctx.fill(); ctx.stroke();
-
-    ctx.restore();
-
-    // 5. Hệ thống UI Text
-    function drawShadowText(text, x, y, font, color = "#fff") {
-        ctx.font = font;
-        ctx.textAlign = "center";
-        ctx.fillStyle = "#000"; 
-        ctx.fillText(text, x + 3, y + 3);
-        ctx.fillStyle = color;
-        ctx.fillText(text, x, y);
+    // ==========================================
+    // TRẠNG THÁI 3: KHI ĐANG TRONG TRẬN ĐẤU (PLAYING)
+    // ==========================================
+    else if (gameState === "PLAYING") {
+        drawBird(bird.x, bird.y, bird.angle, bird.radius, currentSkin);
+        drawText(score, canvas.width / 2, 70, "bold 45px 'Courier New'");
     }
 
-    if (gameState === "PLAYING") {
-        drawShadowText(score, canvas.width / 2, 70, "bold 45px 'Courier New'");
-    }
+    // ==========================================
+    // TRẠNG THÁI 4: MÀN HÌNH BÁO THUA (GAMEOVER)
+    // ==========================================
+    else if (gameState === "GAMEOVER") {
+        ctx.fillStyle = "rgba(0, 0, 0, 0.6)"; ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    if (gameState === "START") {
-        ctx.fillStyle = "rgba(0, 0, 0, 0.25)";
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        drawShadowText("FLAPPY CAT", canvas.width / 2, 200, "bold 42px 'Courier New'", "#fff");
-        drawShadowText("BATTLE CATS EDITION", canvas.width / 2, 240, "bold 18px 'Courier New'", "#f1c40f");
-        drawShadowText("CHẠM ĐỂ BAY", canvas.width / 2, 330, "bold 20px 'Courier New'");
-        drawShadowText("KỶ LỤC: " + highScore, canvas.width / 2, 450, "bold 22px 'Courier New'", "#e74c3c");
-    }
+        ctx.fillStyle = "#f4f1c3"; ctx.strokeStyle = "#543805"; ctx.lineWidth = 4;
+        ctx.fillRect(60, 180, 280, 180); ctx.strokeRect(60, 180, 280, 180);
 
-    if (gameState === "GAMEOVER") {
-        ctx.fillStyle = "rgba(0, 0, 0, 0.6)";
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        drawText("GAME OVER", canvas.width / 2, 225, "bold 30px 'Courier New'", "#e74c3c");
+        drawText("ĐIỂM TRẬN: " + score, canvas.width / 2, 265, "bold 18px 'Courier New'", "#333");
+        drawText("🪙 ĐƯỢC CỘNG: +" + score + " XU", canvas.width / 2, 295, "bold 16px 'Courier New'", "#d35400");
+        drawText("KỶ LỤC: " + highScore, canvas.width / 2, 325, "bold 18px 'Courier New'", "#333");
 
-        ctx.fillStyle = "#fbfbf6";
-        ctx.strokeStyle = "#000";
-        ctx.lineWidth = 4;
-        ctx.fillRect(60, 180, 280, 160);
-        ctx.strokeRect(60, 180, 280, 160);
-
-        drawShadowText("MEOW OVER!", canvas.width / 2, 230, "bold 30px 'Courier New'", "#e74c3c");
-        drawShadowText("ĐIỂM SỐ: " + score, canvas.width / 2, 275, "bold 20px 'Courier New'", "#333");
-        drawShadowText("KỶ LỤC: " + highScore, canvas.width / 2, 305, "bold 20px 'Courier New'", "#333");
-
-        drawShadowText("CHẠM ĐỂ CHƠI LẠI", canvas.width / 2, 400, "bold 18px 'Courier New'");
+        drawText("CHẠM BẤT KỲ ĐÂU ĐỂ VỀ TRANG CHỦ", canvas.width / 2, 410, "bold 15px 'Courier New'");
     }
 }
 
-// Khởi chạy game loop
+// Bắt đầu vận hành game loop
 gameLoop();
 </script>
 
