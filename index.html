@@ -293,7 +293,7 @@ function gameLoop() {
 }
 
 function update() {
-    // ĐƯA LOGIC DI CHUYỂN NỀN LÊN ĐẦU: Giúp nền cuộn mượt ngay cả khi ở Menu chính
+    // SỬA LỖI LOGIC: Đưa phần dịch chuyển nền lên trước lệnh "return" để menu chính hoạt động mượt mà
     let stats = SKINS[currentSkin] || SKINS.DEFAULT;
     bgX -= 0.6 * stats.speed;
     if (bgX <= -canvas.width) bgX = 0;
@@ -367,10 +367,8 @@ function handleDeath() {
 function draw() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // 1. Nền trời
+    // 1. Nền
     ctx.fillStyle = "#4ec0ca"; ctx.fillRect(0, 0, canvas.width, canvas.height);
-    
-    // 2. Nền thành phố phía sau
     ctx.fillStyle = "#3caab5";
     for (let j = 0; j < 3; j++) {
         let currentBgX = bgX + (j * canvas.width);
@@ -379,7 +377,7 @@ function draw() {
         ctx.fillRect(currentBgX + 180, canvas.height - 160, 60, 115);
     }
 
-    // 3. Ống cống
+    // 2. Ống cống
     if (gameState === "PLAYING" || gameState === "GAMEOVER") {
         for (let i = 0; i < pipes.length; i++) {
             let p = pipes[i];
@@ -391,7 +389,7 @@ function draw() {
         }
     }
 
-    // 4. Mặt đất cố định phía trước
+    // 3. Mặt đất
     ctx.fillStyle = "#ded895"; ctx.fillRect(0, canvas.height - 45, canvas.width, 45);
     ctx.fillStyle = "#54b031"; ctx.fillRect(0, canvas.height - 45, canvas.width, 12);
     ctx.fillStyle = "#000"; ctx.fillRect(0, canvas.height - 45, canvas.width, 3);
@@ -408,7 +406,7 @@ function draw() {
 
     if (gameState !== "PLAYING") drawText("🪙 XU: " + coins, 20, 40, "bold 18px Arial, sans-serif", "#f1c40f", "left");
 
-    // MAIN MENU STATE
+    // MAIN MENU
     if (gameState === "MAIN_MENU") {
         ctx.fillStyle = "rgba(0, 0, 0, 0.15)"; ctx.fillRect(0, 0, canvas.width, canvas.height);
         drawText("FLAPPY BIRD", canvas.width / 2, 160, "bold 44px Arial, sans-serif", "#f1c40f");
@@ -418,7 +416,7 @@ function draw() {
         drawButton(BUTTONS.play, "VÀO CHƠI", "#2ecc71"); drawButton(BUTTONS.shop, "TỦ ĐỒ", "#3498db");
     }
 
-    // SHOP SKIN STATE
+    // SHOP SKIN
     else if (gameState === "SKIN_SHOP") {
         ctx.fillStyle = "rgba(0, 0, 0, 0.5)"; ctx.fillRect(0, 0, canvas.width, canvas.height);
         drawText("CỬA HÀNG CHỈ SỐ", canvas.width / 2, 75, "bold 26px Arial, sans-serif", "#3498db");
@@ -498,10 +496,11 @@ function draw() {
     }
 }
 
+// --- VÁ ĐẦY ĐỦ HÀM VẼ CHIM THEO TỪNG SKIN ---
 function drawBird(x, y, angle, radius, skinKey) {
     ctx.save(); ctx.translate(x, y); ctx.rotate(angle);
     ctx.lineWidth = 2.5; ctx.strokeStyle = "#000";
     let color = (SKINS[skinKey] && SKINS[skinKey].color) ? SKINS[skinKey].color : "#f1c40f";
 
     if (skinKey === "ANGRY_RED") {
-        ctx.fillStyle = color; ctx.beginPath(); ctx.arc(0, 0, radius, 0, Math.PI * 2); ctx.fill(); ctx.str
+        ctx.fillStyle = color; ctx.beginPath(); ctx.arc(0, 0, radius, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
