@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Flappy Bird - RPG fixed</title>
+    <title>Flappy Bird - RPG Optimized</title>
     <style>
         body {
             margin: 0;
@@ -13,17 +13,17 @@
             justify-content: center;
             align-items: center;
             height: 100vh;
-            font-family: 'Courier New', Courier, monospace;
+            font-family: Arial, sans-serif;
             overflow: hidden;
             user-select: none;
             touch-action: none;
         }
         canvas {
+            width: 400px;
+            height: 600px;
             border: 4px solid #333;
             box-shadow: 0 12px 36px rgba(0,0,0,0.7);
             background-color: #4ec0ca;
-            max-width: 100vw;
-            max-height: 100vh;
         }
     </style>
 </head>
@@ -35,10 +35,18 @@
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
 
-// --- HỆ THỐNG ÂM THANH SẠCH ---
-const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+// --- HỆ THỐNG ÂM THANH AN TOÀN TRÊN SAFARI/IOS ---
+let audioCtx = null;
+function initAudio() {
+    if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+}
+
 function playTone(freq, type, duration) {
     try {
+        initAudio();
+        if (!audioCtx) return;
         let osc = audioCtx.createOscillator();
         let gain = audioCtx.createGain();
         osc.type = type;
@@ -47,9 +55,11 @@ function playTone(freq, type, duration) {
         gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration);
         osc.connect(gain);
         gain.connect(audioCtx.destination);
-        osc.start(); osc.stop(audioCtx.currentTime + duration);
+        osc.start(); 
+        osc.stop(audioCtx.currentTime + duration);
     } catch(e) {}
 }
+
 const sounds = {
     jump: () => playTone(400, "square", 0.08),
     score: () => { playTone(600, "sine", 0.05); setTimeout(() => playTone(900, "sine", 0.1), 50); },
@@ -90,19 +100,17 @@ const SKINS = {
     }
 };
 
-// --- STORAGE & KIỂM TRA LỖI CRASH DỮ LIỆU CŨ ---
+// --- STORAGE & KIỂM TRA TOÀN VẸN DỮ LIỆU ---
 let highScore = Number(localStorage.getItem("fb_highScore")) || 0;
 let coins = Number(localStorage.getItem("fb_coins")) || 0;
 let currentSkin = localStorage.getItem("fb_currentSkin") || "DEFAULT";
 let ownedSkins = JSON.parse(localStorage.getItem("fb_ownedSkins")) || ["DEFAULT"];
 let codeUsed = localStorage.getItem("fb_codeUsed_alibaba210") === "true";
 
-// KHẮC PHỤC LỖI KHÔNG TÌM THẤY SKIN CŨ TRONG LOCALSTORAGE
 if (!SKINS[currentSkin]) {
     currentSkin = "DEFAULT";
     localStorage.setItem("fb_currentSkin", "DEFAULT");
 }
-// Lọc lại danh sách skin đã sở hữu để tránh lỗi logic
 ownedSkins = ownedSkins.filter(skin => SKINS[skin]);
 if (ownedSkins.length === 0) ownedSkins = ["DEFAULT"];
 
@@ -120,7 +128,7 @@ let skillCooldown = 0;
 let activeSkillTimer = 0;   
 let hasRevivedThisMatch = false; 
 
-// --- ĐỊNH VỊ NÚT BẤM ---
+// --- ĐỊNH VỊ NÚT BẤM CHUẨN TỌA ĐỘ FIXED ---
 const BUTTONS = {
     play: { x: 60, y: 360, w: 120, h: 45 },
     shop: { x: 220, y: 360, w: 120, h: 45 },
@@ -129,12 +137,13 @@ const BUTTONS = {
     nextSkin: { x: 330, y: 165, w: 40, h: 40 },
     actionSkin: { x: 100, y: 315, w: 200, h: 45 },
     giftcode: { x: 100, y: 445, w: 200, h: 38 },
-    useSkill: { x: 270, y: 485, w: 110, h: 50 }
+    useSkill: { x: 270, y: 20, w: 110, h: 45 } // Đưa lên góc trên an toàn, dễ tương tác
 };
 let shopSelectIndex = 0;
 
 function handleInteraction(clientX, clientY) {
-    if (audioCtx.state === 'suspended') audioCtx.resume();
+    initAudio();
+    if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
     
     const rect = canvas.getBoundingClientRect();
     const mx = (clientX - rect.left) * (canvas.width / rect.width);
@@ -215,7 +224,8 @@ function checkInBtn(mx, my, btn) {
 
 canvas.addEventListener("mousedown", (e) => handleInteraction(e.clientX, e.clientY));
 canvas.addEventListener("touchstart", (e) => {
-    e.preventDefault(); handleInteraction(e.touches[0].clientX, e.touches[0].clientY);
+    e.preventDefault(); 
+    handleInteraction(e.touches[0].clientX, e.touches[0].clientY);
 }, { passive: false });
 
 document.addEventListener("keydown", (e) => {
@@ -378,25 +388,25 @@ function draw() {
         ctx.fillStyle = "#000"; ctx.fillRect(btn.x + 3, btn.y + 3, btn.w, btn.h);
         ctx.fillStyle = color; ctx.strokeStyle = "#000"; ctx.lineWidth = 3;
         ctx.fillRect(btn.x, btn.y, btn.w, btn.h); ctx.strokeRect(btn.x, btn.y, btn.w, btn.h);
-        drawText(text, btn.x + btn.w/2, btn.y + btn.h/2 + 5, "bold 13px 'Courier New'", "#fff");
+        drawText(text, btn.x + btn.w/2, btn.y + btn.h/2 + 5, "bold 13px Arial, sans-serif", "#fff");
     }
 
-    if (gameState !== "PLAYING") drawText("🪙 XU: " + coins, 20, 40, "bold 18px 'Courier New'", "#f1c40f", "left");
+    if (gameState !== "PLAYING") drawText("🪙 XU: " + coins, 20, 40, "bold 18px Arial, sans-serif", "#f1c40f", "left");
 
     // MAIN MENU
     if (gameState === "MAIN_MENU") {
         ctx.fillStyle = "rgba(0, 0, 0, 0.15)"; ctx.fillRect(0, 0, canvas.width, canvas.height);
-        drawText("FLAPPY BIRD", canvas.width / 2, 160, "bold 44px 'Courier New'", "#f1c40f");
-        drawText("RPG STATS FIXED", canvas.width / 2, 200, "bold 18px 'Courier New'", "#fff");
-        drawText("KỶ LỤC: " + highScore, canvas.width / 2, 260, "bold 22px 'Courier New'", "#fff");
+        drawText("FLAPPY BIRD", canvas.width / 2, 160, "bold 44px Arial, sans-serif", "#f1c40f");
+        drawText("RPG STATS FIXED", canvas.width / 2, 200, "bold 18px Arial, sans-serif", "#fff");
+        drawText("KỶ LỤC: " + highScore, canvas.width / 2, 260, "bold 22px Arial, sans-serif", "#fff");
         drawBird(canvas.width / 2, 290, 0, 15, currentSkin);
         drawButton(BUTTONS.play, "VÀO CHƠI", "#2ecc71"); drawButton(BUTTONS.shop, "TỦ ĐỒ", "#3498db");
     }
 
-    // SHOP SHOP
+    // SHOP
     else if (gameState === "SKIN_SHOP") {
         ctx.fillStyle = "rgba(0, 0, 0, 0.5)"; ctx.fillRect(0, 0, canvas.width, canvas.height);
-        drawText("CỬA HÀNG CHỈ SỐ", canvas.width / 2, 75, "bold 26px 'Courier New'", "#3498db");
+        drawText("CỬA HÀNG CHỈ SỐ", canvas.width / 2, 75, "bold 26px Arial, sans-serif", "#3498db");
 
         let skinKeys = Object.keys(SKINS); let activeKey = skinKeys[shopSelectIndex];
         let activeSkin = SKINS[activeKey]; let isOwned = ownedSkins.includes(activeKey);
@@ -404,12 +414,12 @@ function draw() {
         ctx.fillStyle = "#2c3e50"; ctx.strokeStyle = "#fff"; ctx.lineWidth = 3;
         ctx.fillRect(110, 110, 180, 120); ctx.strokeRect(110, 110, 180, 120);
         drawBird(canvas.width / 2, 160, 0, 20, activeKey);
-        drawText(activeSkin.name, canvas.width / 2, 215, "bold 15px 'Courier New'", "#fff");
+        drawText(activeSkin.name, canvas.width / 2, 215, "bold 15px Arial, sans-serif", "#fff");
 
         drawButton(BUTTONS.prevSkin, "<", "#7f8c8d"); drawButton(BUTTONS.nextSkin, ">", "#7f8c8d");
 
-        drawText(activeSkin.desc, canvas.width / 2, 260, "bold 13px 'Courier New'", "#54b031");
-        ctx.font = "bold 11px 'Courier New'"; ctx.fillStyle = "#fff";
+        drawText(activeSkin.desc, canvas.width / 2, 260, "bold 13px Arial, sans-serif", "#54b031");
+        ctx.font = "bold 11px Arial, sans-serif"; ctx.fillStyle = "#fff";
         ctx.fillText(activeSkin.skillDesc, canvas.width / 2, 285);
 
         if (isOwned) {
@@ -420,9 +430,9 @@ function draw() {
         }
 
         ctx.fillStyle = "rgba(255,255,255,0.06)"; ctx.fillRect(30, 400, 340, 110);
-        drawText("--- ĐỔI MÃ PHẦN THƯỞNG ---", canvas.width / 2, 425, "bold 13px 'Courier New'", "#aaa");
+        drawText("--- ĐỔI MÃ PHẦN THƯỞNG ---", canvas.width / 2, 425, "bold 13px Arial, sans-serif", "#aaa");
         drawButton(BUTTONS.giftcode, "🎟️ NHẬP GIFTCODE", "#9b59b6");
-        if (shopMessageText) drawText(shopMessageText, canvas.width / 2, 523, "bold 13px 'Courier New'", "#f1c40f");
+        if (shopMessageText) drawText(shopMessageText, canvas.width / 2, 523, "bold 13px Arial, sans-serif", "#f1c40f");
 
         drawButton(BUTTONS.back, "TRỞ VỀ", "#e74c3c");
     }
@@ -435,7 +445,7 @@ function draw() {
         drawBird(bird.x, bird.y, bird.angle, bird.radius, currentSkin);
         ctx.shadowBlur = 0; 
 
-        drawText(score, canvas.width / 2, 70, "bold 45px 'Courier New'");
+        drawText(score, canvas.width / 2, 70, "bold 45px Arial, sans-serif");
 
         if (currentSkin === "ANGRY_RED" || currentSkin === "DARK_NIGHT") {
             let btnColor = (skillCooldown > 0) ? "#7f8c8d" : "#9b59b6";
@@ -451,7 +461,7 @@ function draw() {
         else if (currentSkin === "EAGLE_MINI") {
             let label = "❤️ HỒI SINH SẴN SÀNG";
             if (skillCooldown > 0) label = `💔 HỒI: ${Math.ceil(skillCooldown / 60)}s`;
-            drawText(label, canvas.width - 20, 35, "bold 12px 'Courier New'", (skillCooldown > 0) ? "#e74c3c" : "#2ecc71", "right");
+            drawText(label, canvas.width - 20, 35, "bold 12px Arial, sans-serif", (skillCooldown > 0) ? "#e74c3c" : "#2ecc71", "right");
         }
     }
 
@@ -461,12 +471,12 @@ function draw() {
         ctx.fillStyle = "#f4f1c3"; ctx.strokeStyle = "#543805"; ctx.lineWidth = 4;
         ctx.fillRect(60, 180, 280, 180); ctx.strokeRect(60, 180, 280, 180);
 
-        drawText("GAME OVER", canvas.width / 2, 225, "bold 30px 'Courier New'", "#e74c3c");
-        drawText("ĐIỂM TRẬN: " + score, canvas.width / 2, 265, "bold 18px 'Courier New'", "#333");
-        drawText("🪙 THU HOẠCH: +" + score + " XU", canvas.width / 2, 295, "bold 16px 'Courier New'", "#d35400");
-        drawText("KỶ LỤC: " + highScore, canvas.width / 2, 325, "bold 18px 'Courier New'", "#333");
+        drawText("GAME OVER", canvas.width / 2, 225, "bold 30px Arial, sans-serif", "#e74c3c");
+        drawText("ĐIỂM TRẬN: " + score, canvas.width / 2, 265, "bold 18px Arial, sans-serif", "#333");
+        drawText("🪙 THU HOẠCH: +" + score + " XU", canvas.width / 2, 295, "bold 16px Arial, sans-serif", "#d35400");
+        drawText("KỶ LỤC: " + highScore, canvas.width / 2, 325, "bold 18px Arial, sans-serif", "#333");
 
-        drawText("CHẠM MÀN HÌNH ĐỂ VỀ TRANG CHỦ", canvas.width / 2, 410, "bold 15px 'Courier New'");
+        drawText("CHẠM MÀN HÌNH ĐỂ VỀ TRANG CHỦ", canvas.width / 2, 410, "bold 15px Arial, sans-serif");
     }
 }
 
@@ -484,5 +494,4 @@ function drawBird(x, y, angle, radius, skinKey) {
     } 
     else if (skinKey === "EAGLE_MINI") {
         ctx.fillStyle = color; ctx.beginPath(); ctx.arc(0, 0, radius, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-        ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.moveTo(-10, -5); ctx.lineTo(-15, -10); ctx.lineTo(-5, -11); ctx.lineTo(0, -14); ctx.lineTo(5, -10); ctx.closePath(); ctx.fill(); ctx.stroke();
-      
+        ctx.fillStyle 
