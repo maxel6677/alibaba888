@@ -535,4 +535,67 @@ function draw() {
     }
 
     // PLAYING
-   
+    else if (gameState === "PLAYING") {
+        drawBird(bird.x, bird.y, bird.angle, bird.radius, currentSkin);
+        
+        // 1. THÊM HIỆU ỨNG VÒNG TRÒN HÀO QUANG BẤT TỬ NGAY SAU DRAWBIRD
+        if(skillActive > 0){
+            ctx.beginPath();
+            ctx.arc(
+                bird.x,
+                bird.y,
+                bird.radius + 10,
+                0,
+                Math.PI * 2
+            );
+            ctx.strokeStyle = "#9b59b6";
+            ctx.lineWidth = 4;
+            ctx.stroke();
+        }
+
+        drawText(score, canvas.width / 2, 70, "bold 45px 'Courier New'");
+
+        // 3. ĐIỀU KIỆN SỬA ĐỔI: Chỉ vẽ nút Skill cho Angry Red và Dark Night
+        if(currentSkin === "ANGRY_RED" || currentSkin === "DARK_NIGHT"){
+            let text = "SKILL";
+            if (skillActive > 0) {
+                text = "ACTIVE!";
+            } else if(skillCooldown > 0) {
+                text = Math.ceil(skillCooldown / 60) + "s";
+            }
+
+            drawButton(
+                BUTTONS.skill,
+                text,
+                (skillCooldown > 0 && skillActive <= 0) ? "#777" : "#9b59b6"
+            );
+        }
+        // Riêng Eagle Mini sẽ hiển thị chỉ báo văn bản nhẹ nhàng thay vì chiếm dụng nút Skill bấm
+        else if(currentSkin === "EAGLE_MINI"){
+            let statusText = revived ? "💔 ĐÃ HỒI SINH" : "💚 SẴN SÀNG HỒI SINH";
+            let statusColor = revived ? "#e74c3c" : "#2ecc71";
+            drawText(statusText, canvas.width - 15, 35, "bold 12px 'Courier New'", statusColor, "right");
+        }
+    }
+
+    // GAMEOVER
+    else if (gameState === "GAMEOVER") {
+        ctx.fillStyle = "rgba(0, 0, 0, 0.6)"; ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        ctx.fillStyle = "#f4f1c3"; ctx.strokeStyle = "#543805"; ctx.lineWidth = 4;
+        ctx.fillRect(60, 180, 280, 180); ctx.strokeRect(60, 180, 280, 180);
+
+        drawText("GAME OVER", canvas.width / 2, 225, "bold 30px 'Courier New'", "#e74c3c");
+        drawText("ĐIỂM TRẬN: " + score, canvas.width / 2, 265, "bold 18px 'Courier New'", "#333");
+        drawText("🪙 THU HOẠCH: +" + score + " XU", canvas.width / 2, 295, "bold 16px 'Courier New'", "#d35400");
+        drawText("KỶ LỤC: " + highScore, canvas.width / 2, 325, "bold 18px 'Courier New'", "#333");
+
+        drawText("CHẠM MÀN HÌNH ĐỂ VỀ TRANG CHỦ", canvas.width / 2, 410, "bold 15px 'Courier New'");
+    }
+}
+
+gameLoop();
+</script>
+
+</body>
+</html>
