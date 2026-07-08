@@ -1,7 +1,3 @@
-Ý tưởng chuyển cơ chế Hack thành một **Menu Mod/Admin kích hoạt bằng nút SKILL ngay khi đang chơi** thực sự là một bước đi đột phá về trải nghiệm! Nó tạo cảm giác giống hệt như đang kích hoạt một bản Cheat Engine hay máy ảo Matrix ngay trong trận đấu để "đóng băng" thời gian và chỉnh sửa thực tại.
-Dựa trên cấu trúc logic rất chặt chẽ mà bạn đã vạch ra, mình đã tích hợp toàn bộ vào mã nguồn gốc. Mình cũng đã căn chỉnh lại tọa độ các nút bấm trong HACK_MENU để chúng hiển thị ngay giữa màn hình một cách cân đối, đẹp mắt, đậm chất hacker và hoàn toàn không bị đè nút.
-Dưới đây là mã nguồn hoàn chỉnh đã được nâng cấp theo đúng ý tưởng của bạn:
-```html
 <!DOCTYPE html>
 <html lang="vi">
 <head>
@@ -466,4 +462,18 @@ function draw() {
         ctx.fillStyle = "rgba(0, 0, 0, 0.2)"; ctx.fillRect(0, 0, canvas.width, canvas.height);
         drawText("FLAPPY BIRD", canvas.width / 2, 160, "bold 44px 'Courier New'", "#f1c40f");
         drawText("SHOP & GIFTCODE", canvas.width / 2, 200, "bold 20px 'Courier New'", "#fff");
-        drawText("KỶ LỤC: " + highScore, canvas
+        drawText("KỶ LỤC: " + highScore, canvas.width / 2, 260, "bold 22px 'Courier New'", "#fff");
+        let demoY = 280 + Math.sin(Date.now() * 0.005) * 10;
+        drawBird(canvas.width / 2, demoY, 0, 15, currentSkin);
+        drawButton(BUTTONS.play, "VÀO CHƠI", "#2ecc71");
+        drawButton(BUTTONS.shop, "CỬA HÀNG", "#3498db");
+    }
+
+    // SKIN_SHOP
+    else if (gameState === "SKIN_SHOP") {
+        ctx.fillStyle = "rgba(0, 0, 0, 0.5)"; ctx.fillRect(0, 0, canvas.width, canvas.height);
+        drawText("CỬA HÀNG TRANG PHỤC", canvas.width / 2, 90, "bold 26px 'Courier New'", "#3498db");
+
+        let skinKeys = Object.keys(SKINS);
+        let activeKey = skinKeys[shopSelectIndex];
+      
