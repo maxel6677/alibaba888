@@ -79,7 +79,9 @@ let pipes = [];
 let shopMessageText = ""; // Hiển thị thông báo trong shop (Mua thành công, sai code...)
 
 let bird = { x: 80, y: 250, radius: 13, velocity: 0, angle: 0 };
-
+let skillCooldown = 0;
+let skillActive = 0;
+let revived = false;
 // --- ĐỊNH NGHĨA HỆ THỐNG SKIN (Đồng giá 30 xu theo yêu cầu) ---
 const SKINS = {
     DEFAULT: { name: "Chim Gốc", color: "#f1c40f" },
@@ -92,6 +94,12 @@ const SKIN_COST = 30; // Đồng giá 30 xu
 
 // --- ĐỊNH VỊ NÚT BẤM TRÊN CANVAS ---
 const BUTTONS = {
+skill:{
+    x:260,
+    y:500,
+    w:110,
+    h:45
+}
     play: { x: 70, y: 340, w: 110, h: 45 },
     shop: { x: 220, y: 340, w: 110, h: 45 },
     back: { x: 130, y: 520, w: 140, h: 40 },
@@ -185,7 +193,16 @@ function handleInteraction(clientX, clientY) {
         }
     } 
     // ĐANG CHƠI
-    else if (gameState === "PLAYING") {
+    else if(gameState==="PLAYING"){
+
+    if(checkInBtn(mx,my,BUTTONS.skill)){
+        useSkill();
+        return;
+    }
+
+    bird.velocity=JUMP;
+    sounds.jump();
+}
         bird.velocity = JUMP;
         sounds.jump();
     } 
@@ -215,6 +232,11 @@ function resetGame() {
     pipes = [];
     score = 0;
     frameCount = 0;
+
+    // Reset kỹ năng
+    skillCooldown = 0;
+    skillActive = 0;
+    revived = false;
 }
 
 // --- THUẬT TOÁN VA CHẠM ---
@@ -235,7 +257,11 @@ function gameLoop() {
 
 function update() {
     if (gameState !== "PLAYING") return;
+if(skillCooldown>0)
+    skillCooldown--;
 
+if(skillActive>0)
+    skillActive--;
     bgX -= 0.6;
     if (bgX <= -canvas.width) bgX = 0;
 
@@ -262,9 +288,27 @@ function update() {
         let hitBottom = circleRectCollision(bird.x, bird.y, bird.radius, p.x, p.topHeight + PIPE_GAP, PIPE_WIDTH, canvas.height - (p.topHeight + PIPE_GAP));
 
         if (hitTop || hitBottom) {
+
+    // Nếu đang dùng kỹ năng thì bỏ qua va chạm
+    if (skillActive <= 0) {
+
+        // Đại bàng hồi sinh 1 lần
+        if (currentSkin === "EAGLE_MINI" && !revived) {
+
+            revived = true;
+            bird.y = 250;
+            bird.velocity = 0;
+            pipes = [];
+
+        } 
+        
+        // Không còn kỹ năng thì thua
+        else {
             gameState = "GAMEOVER";
             sounds.hit();
         }
+    }
+}
 
         if (!p.scored && p.x + PIPE_WIDTH < bird.x - bird.radius) {
             score++;
@@ -444,9 +488,26 @@ function draw() {
     // TRẠNG THÁI: ĐANG CHƠI (PLAYING)
     // ==========================================
     else if (gameState === "PLAYING") {
-        drawBird(bird.x, bird.y, bird.angle, bird.radius, currentSkin);
-        drawText(score, canvas.width / 2, 70, "bold 45px 'Courier New'");
+    drawBird(bird.x, bird.y, bird.angle, bird.radius, currentSkin);
+    drawText(score, canvas.width / 2, 70, "bold 45px 'Courier New'");
+
+
+    // NÚT KỸ NĂNG
+    if(currentSkin !== "DEFAULT"){
+
+        let text = "SKILL";
+
+        if(skillCooldown > 0)
+            text = Math.ceil(skillCooldown / 60) + "s";
+
+        drawButton(
+            BUTTONS.skill,
+            text,
+            skillCooldown > 0 ? "#777" : "#9b59b6"
+        );
+
     }
+}
 
     // ==========================================
     // TRẠNG THÁI: THUA CUỘC (GAMEOVER)
@@ -465,7 +526,27 @@ function draw() {
         drawText("CHẠM MÀN HÌNH ĐỂ VỀ TRANG CHỦ", canvas.width / 2, 410, "bold 15px 'Courier New'");
     }
 }
+function useSkill(){
 
+    if(skillCooldown>0) return;
+
+
+    if(currentSkin==="ANGRY_RED"){
+
+        skillActive=60; 
+        skillCooldown=600;
+
+    }
+
+
+    else if(currentSkin==="DARK_NIGHT"){
+
+        skillActive=180;
+        skillCooldown=1200;
+
+    }
+
+}
 gameLoop();
 </script>
 
