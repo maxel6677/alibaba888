@@ -1,9 +1,13 @@
+Ý tưởng chuyển cơ chế Hack thành một **Menu Mod/Admin kích hoạt bằng nút SKILL ngay khi đang chơi** thực sự là một bước đi đột phá về trải nghiệm! Nó tạo cảm giác giống hệt như đang kích hoạt một bản Cheat Engine hay máy ảo Matrix ngay trong trận đấu để "đóng băng" thời gian và chỉnh sửa thực tại.
+Dựa trên cấu trúc logic rất chặt chẽ mà bạn đã vạch ra, mình đã tích hợp toàn bộ vào mã nguồn gốc. Mình cũng đã căn chỉnh lại tọa độ các nút bấm trong HACK_MENU để chúng hiển thị ngay giữa màn hình một cách cân đối, đẹp mắt, đậm chất hacker và hoàn toàn không bị đè nút.
+Dưới đây là mã nguồn hoàn chỉnh đã được nâng cấp theo đúng ý tưởng của bạn:
+```html
 <!DOCTYPE html>
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Flappy Bird - RPG Hacker Edition</title>
+    <title>Flappy Bird - Admin Hacker Edition</title>
     <style>
         body {
             margin: 0;
@@ -51,10 +55,11 @@ const sounds = {
     jump: () => playTone(400, "square", 0.08),
     score: () => { playTone(600, "sine", 0.05); setTimeout(() => playTone(900, "sine", 0.1), 50); },
     hit: () => playTone(150, "sawtooth", 0.25),
-    buy: () => { playTone(500, "sine", 0.08); setTimeout(() => playTone(700, "sine", 0.2), 80); }
+    buy: () => { playTone(500, "sine", 0.08); setTimeout(() => playTone(700, "sine", 0.2), 80); },
+    hack: () => playTone(800, "sawtooth", 0.1)
 };
 
-// --- CẤU HÌNH VẬT LÝ ---
+// --- CẤU HÌNH VẬT LÝ BIẾN THIÊN ---
 const GRAVITY = 0.24;
 const JUMP = -5.0;
 const PIPE_SPEED = 2.2;
@@ -82,7 +87,7 @@ let skillCooldown = 0;
 let skillActive = 0;
 let revived = false; 
 
-// --- HỆ THỐNG SKIN: ĐỔI TÊN CHIM BÓNG TỐI & THÊM CHIM HACKER ---
+// --- HỆ THỐNG SKIN (TÍCH HỢP CHIM HACKER) ---
 const SKINS = {
     DEFAULT: {
         name: "Chim Mặc Định", cost: 0, color: "#f1c40f",
@@ -90,41 +95,43 @@ const SKINS = {
     },
     ANGRY_RED: {
         name: "Angry Bird Đỏ", cost: 40, color: "#e74c3c",
-        speed: 1.2, jump: 1.2, fall: 0.8, ability: "Lướt vọt xuyên ống 2s. Hồi 40s"
+        speed: 1.2, jump: 1.2, fall: 0.8, ability: "Lướt xuyên ống 2 giây. Hồi sau 40 giây"
     },
     EAGLE_MINI: {
         name: "Đại Bàng Mini", cost: 50, color: "#7f8c8d",
         speed: 1.5, jump: 1.1, fall: 1.2, ability: "Tự động hồi sinh 1 lần khi chết"
     },
     DARK_NIGHT: {
-        name: "Chim Bóng Tối", cost: 70, color: "#2c3e50", // Đã đổi tên ở đây
-        speed: 1.3, jump: 1.2, fall: 0.9, ability: "Bất tử xuyên ống 4s. Hồi 40s"
+        name: "Chim Bóng Tối", cost: 70, color: "#2c3e50",
+        speed: 1.3, jump: 1.2, fall: 0.9, ability: "Bất tử xuyên ống 4 giây. Hồi sau 40 giây"
     },
     HACKER_BIRD: {
-        name: "Chim Hacker", cost: 1000, color: "#2ecc71", // Thêm nhân vật mới giá 1000 xu
-        speed: 1.0, jump: 1.0, fall: 1.0, ability: "Phá giới hạn: Tùy chỉnh mọi chỉ số tới 100!"
+        name: "Chim Hacker", cost: 1000, color: "#00ff00",
+        speed: 1, jump: 1, fall: 1, ability: "Bấm SKILL khi chơi để hack chỉ số tối đa 20"
     }
 };
 
-// Khôi phục chỉ số tùy chỉnh của Hacker Bird nếu đã lưu trước đó
-if (localStorage.getItem("fb_hacker_speed")) SKINS.HACKER_BIRD.speed = parseFloat(localStorage.getItem("fb_hacker_speed"));
-if (localStorage.getItem("fb_hacker_jump")) SKINS.HACKER_BIRD.jump = parseFloat(localStorage.getItem("fb_hacker_jump"));
-if (localStorage.getItem("fb_hacker_fall")) SKINS.HACKER_BIRD.fall = parseFloat(localStorage.getItem("fb_hacker_fall"));
-
-// --- ĐỊNH VỊ NÚT BẤM ---
+// --- ĐỊNH VỊ NÚT BẤM TRÊN CANVAS ---
 const BUTTONS = {
     skill: { x: 260, y: 500, w: 110, h: 45 },
     play: { x: 70, y: 340, w: 110, h: 45 },
     shop: { x: 220, y: 340, w: 110, h: 45 },
-    back: { x: 130, y: 540, w: 140, h: 35 },
-    prevSkin: { x: 40, y: 175, w: 40, h: 40 },
-    nextSkin: { x: 320, y: 175, w: 40, h: 40 },
-    actionSkin: { x: 100, y: 265, w: 200, h: 40 }, 
-    giftcode: { x: 100, y: 485, w: 200, h: 35 },
-    // Các nút bấm tăng giảm chỉ số độc quyền cho Hacker Bird
-    spdDown: { x: 220, y: 325, w: 30, h: 25 }, spdUp: { x: 310, y: 325, w: 30, h: 25 },
-    jmpDown: { x: 220, y: 360, w: 30, h: 25 }, jmpUp: { x: 310, y: 360, w: 30, h: 25 },
-    falDown: { x: 220, y: 390, w: 30, h: 25 }, falUp: { x: 310, y: 390, w: 30, h: 25 }
+    back: { x: 130, y: 520, w: 140, h: 40 },
+    prevSkin: { x: 40, y: 225, w: 40, h: 40 },
+    nextSkin: { x: 320, y: 225, w: 40, h: 40 },
+    actionSkin: { x: 100, y: 320, w: 200, h: 45 }, 
+    giftcode: { x: 100, y: 440, w: 200, h: 40 },
+    
+    // Nút điều chỉnh trong Menu Hack Mod (Được bố trí cực kỳ cân đối)
+    hackSpeedUp: { x: 275, y: 175, w: 80, h: 35 },
+    hackJumpUp: { x: 275, y: 235, w: 80, h: 35 },
+    hackFallUp: { x: 275, y: 295, w: 80, h: 35 },
+    
+    hackSpeedDown: { x: 45, y: 175, w: 40, h: 35 },
+    hackJumpDown: { x: 45, y: 235, w: 40, h: 35 },
+    hackFallDown: { x: 45, y: 295, w: 40, h: 35 },
+    
+    hackClose: { x: 120, y: 410, w: 160, h: 45 }
 };
 let shopSelectIndex = 0;
 
@@ -148,7 +155,7 @@ function handleInteraction(clientX, clientY) {
             gameState = "SKIN_SHOP";
         }
     } 
-    // CỬA HÀNG & BẢNG ĐIỀU KHIỂN HACK
+    // CỬA HÀNG TRANG PHỤC
     else if (gameState === "SKIN_SHOP") {
         let skinKeys = Object.keys(SKINS);
         let activeKey = skinKeys[shopSelectIndex];
@@ -156,21 +163,15 @@ function handleInteraction(clientX, clientY) {
 
         if (checkInBtn(mx, my, BUTTONS.back)) {
             gameState = "MAIN_MENU";
-            return;
         }
-        if (checkInBtn(mx, my, BUTTONS.prevSkin)) {
+        else if (checkInBtn(mx, my, BUTTONS.prevSkin)) {
             shopSelectIndex = (shopSelectIndex - 1 + skinKeys.length) % skinKeys.length;
             shopMessageText = "";
-            return;
-        } 
-        if (checkInBtn(mx, my, BUTTONS.nextSkin)) {
+        } else if (checkInBtn(mx, my, BUTTONS.nextSkin)) {
             shopSelectIndex = (shopSelectIndex + 1) % skinKeys.length;
             shopMessageText = "";
-            return;
         }
-
-        // Logic mua/trang bị
-        if (checkInBtn(mx, my, BUTTONS.actionSkin)) {
+        else if (checkInBtn(mx, my, BUTTONS.actionSkin)) {
             if (isOwned) {
                 currentSkin = activeKey;
                 localStorage.setItem("fb_currentSkin", currentSkin);
@@ -191,47 +192,8 @@ function handleInteraction(clientX, clientY) {
                     shopMessageText = "Không đủ tiền! Cần " + SKINS[activeKey].cost + " Xu.";
                 }
             }
-            return;
         }
-
-        // Tương tác điều chỉnh chỉ số chỉ hoạt động khi xem Hacker Bird và ĐÃ SỞ HỮU nó
-        if (activeKey === "HACKER_BIRD" && isOwned) {
-            // Thay đổi tốc độ di chuyển map
-            if (checkInBtn(mx, my, BUTTONS.spdDown)) {
-                SKINS.HACKER_BIRD.speed = Math.max(0.1, +(SKINS.HACKER_BIRD.speed - 0.5).toFixed(1));
-                localStorage.setItem("fb_hacker_speed", SKINS.HACKER_BIRD.speed);
-                playTone(450, "sine", 0.05);
-            }
-            if (checkInBtn(mx, my, BUTTONS.spdUp)) {
-                SKINS.HACKER_BIRD.speed = Math.min(100.0, +(SKINS.HACKER_BIRD.speed + 0.5).toFixed(1));
-                localStorage.setItem("fb_hacker_speed", SKINS.HACKER_BIRD.speed);
-                playTone(650, "sine", 0.05);
-            }
-            // Thay đổi lực nhảy (Bật cao)
-            if (checkInBtn(mx, my, BUTTONS.jmpDown)) {
-                SKINS.HACKER_BIRD.jump = Math.max(0.1, +(SKINS.HACKER_BIRD.jump - 0.1).toFixed(1));
-                localStorage.setItem("fb_hacker_jump", SKINS.HACKER_BIRD.jump);
-                playTone(450, "sine", 0.05);
-            }
-            if (checkInBtn(mx, my, BUTTONS.jmpUp)) {
-                SKINS.HACKER_BIRD.jump = Math.min(100.0, +(SKINS.HACKER_BIRD.jump + 0.1).toFixed(1));
-                localStorage.setItem("fb_hacker_jump", SKINS.HACKER_BIRD.jump);
-                playTone(650, "sine", 0.05);
-            }
-            // Thay đổi cân nặng (Tốc độ rơi)
-            if (checkInBtn(mx, my, BUTTONS.falDown)) {
-                SKINS.HACKER_BIRD.fall = Math.max(0.1, +(SKINS.HACKER_BIRD.fall - 0.1).toFixed(1));
-                localStorage.setItem("fb_hacker_fall", SKINS.HACKER_BIRD.fall);
-                playTone(450, "sine", 0.05);
-            }
-            if (checkInBtn(mx, my, BUTTONS.falUp)) {
-                SKINS.HACKER_BIRD.fall = Math.min(100.0, +(SKINS.HACKER_BIRD.fall + 0.1).toFixed(1));
-                localStorage.setItem("fb_hacker_fall", SKINS.HACKER_BIRD.fall);
-                playTone(650, "sine", 0.05);
-            }
-        }
-
-        if (checkInBtn(mx, my, BUTTONS.giftcode)) {
+        else if (checkInBtn(mx, my, BUTTONS.giftcode)) {
             if (codeUsed) { shopMessageText = "Bạn đã dùng code này rồi!"; return; }
             let inputCode = prompt("Nhập mã Giftcode của bạn tại đây:");
             if (inputCode !== null && inputCode.trim() === "alibaba210") {
@@ -244,15 +206,54 @@ function handleInteraction(clientX, clientY) {
             }
         }
     } 
-    // ĐANG CHƠI
+    // ĐANG TRONG TRẬN ĐẤU
     else if(gameState === "PLAYING"){
-        if((currentSkin === "ANGRY_RED" || currentSkin === "DARK_NIGHT") && checkInBtn(mx, my, BUTTONS.skill)){
-            useSkill();
+        if((currentSkin === "ANGRY_RED" || currentSkin === "DARK_NIGHT" || currentSkin === "HACKER_BIRD") && checkInBtn(mx, my, BUTTONS.skill)){
+            if(currentSkin === "HACKER_BIRD"){
+                gameState = "HACK_MENU"; // Đóng băng game, mở menu mod
+                sounds.hack();
+            } else {
+                useSkill();
+            }
             return;
         }
+
         bird.velocity = JUMP * SKINS[currentSkin].jump;
         sounds.jump();
     } 
+    // MENU HACK GAME (ĐỘC QUYỀN CHIM HACKER)
+    else if(gameState === "HACK_MENU") {
+        let h = SKINS.HACKER_BIRD;
+
+        // Tăng / Giảm tốc độ (Tối thiểu 1, Tối đa 20)
+        if(checkInBtn(mx, my, BUTTONS.hackSpeedUp)){
+            h.speed = Math.min(20, h.speed + 1); sounds.hack();
+        }
+        if(checkInBtn(mx, my, BUTTONS.hackSpeedDown)){
+            h.speed = Math.max(1, h.speed - 1); sounds.hack();
+        }
+
+        // Tăng / Giảm lực bật nhảy (Tối thiểu 1, Tối đa 20)
+        if(checkInBtn(mx, my, BUTTONS.hackJumpUp)){
+            h.jump = Math.min(20, h.jump + 1); sounds.hack();
+        }
+        if(checkInBtn(mx, my, BUTTONS.hackJumpDown)){
+            h.jump = Math.max(1, h.jump - 1); sounds.hack();
+        }
+
+        // Tăng / Giảm trọng lực rơi (Tối thiểu 1, Tối đa 20)
+        if(checkInBtn(mx, my, BUTTONS.hackFallUp)){
+            h.fall = Math.min(20, h.fall + 1); sounds.hack();
+        }
+        if(checkInBtn(mx, my, BUTTONS.hackFallDown)){
+            h.fall = Math.max(1, h.fall - 1); sounds.hack();
+        }
+
+        // Nút Đóng menu để quay lại trận đấu với chỉ số mới áp dụng ngay lập tức
+        if(checkInBtn(mx, my, BUTTONS.hackClose)){
+            gameState = "PLAYING";
+        }
+    }
     // THUA TRẬN
     else if (gameState === "GAMEOVER") {
         gameState = "MAIN_MENU";
@@ -271,10 +272,16 @@ canvas.addEventListener("touchstart", (e) => {
 
 document.addEventListener("keydown", (e) => {
     if (e.code === "Space" || e.code === "ArrowUp") {
-        if (gameState === "PLAYING") { bird.velocity = JUMP * SKINS[currentSkin].jump; sounds.jump(); }
+        if (gameState === "PLAYING") { 
+            bird.velocity = JUMP * SKINS[currentSkin].jump; 
+            sounds.jump(); 
+        }
     }
     if (e.code === "ShiftLeft" || e.code === "KeyE") {
-        if (gameState === "PLAYING") { useSkill(); }
+        if (gameState === "PLAYING") {
+            if(currentSkin === "HACKER_BIRD") { gameState = "HACK_MENU"; sounds.hack(); }
+            else { useSkill(); }
+        }
     }
 });
 
@@ -290,7 +297,7 @@ function useSkill(){
     if(currentSkin === "ANGRY_RED"){
         skillActive = 120;
         skillCooldown = 40 * 60;
-        bird.x = 180; // Lao vọt mạnh về phía trước
+        bird.x = 170; // Cơ chế lướt vọt chuẩn xác đã sửa đổi
         playTone(700, "square", 0.15); 
     }
     else if(currentSkin === "DARK_NIGHT"){
@@ -310,17 +317,15 @@ function circleRectCollision(cx, cy, r, rx, ry, rw, rh) {
 function gameLoop() { update(); draw(); requestAnimationFrame(gameLoop); }
 
 function update() {
-    if (gameState !== "PLAYING") return;
+    if (gameState !== "PLAYING") return; // Khi mở HACK_MENU, game dừng cập nhật hoàn toàn (Đóng băng map)
     
     if(skillCooldown > 0) skillCooldown--;
     if(skillActive > 0) skillActive--;
     
     let stats = SKINS[currentSkin];
     
-    // Angry red từ từ lùi lại vị trí chuẩn sau khi hết lướt vọt
     if (currentSkin === "ANGRY_RED" && bird.x > 80) { bird.x -= 0.8; }
 
-    // Xử lý tăng tốc độ map khi Angry Red đang lướt chiêu thức chủ động
     let currentSpeed = stats.speed;
     let currentBgSpeed = 0.6;
     if (currentSkin === "ANGRY_RED" && skillActive > 0) {
@@ -394,10 +399,11 @@ function drawBird(x, y, angle, radius, skinKey) {
         ctx.fillStyle = "#000"; ctx.fillRect(2, -7, 4, 1.5); ctx.beginPath(); ctx.arc(4.5, -3, 1.5, 0, Math.PI * 2); ctx.fill();
         ctx.fillStyle = "#f39c12"; ctx.beginPath(); ctx.moveTo(8, -2); ctx.lineTo(16, 2); ctx.lineTo(11, 7); ctx.lineTo(8, 4); ctx.closePath(); ctx.fill(); ctx.stroke();
     } 
-    else if (skinKey === "HACKER_BIRD") { // Đồ họa ma trận chất chơi dành riêng cho Chim Hacker
+    else if (skinKey === "HACKER_BIRD") {
+        // Vẽ diện mạo chất chơi cho Chim Hacker của bạn với kính đen bảo mật
         ctx.fillStyle = color; ctx.beginPath(); ctx.arc(0, 0, radius, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-        ctx.fillStyle = "#111"; ctx.fillRect(-8, -6, 16, 5); // Đeo kính râm ngầu lòi
-        ctx.fillStyle = "#000"; ctx.font = "bold 9px Arial"; ctx.fillText("10", -5, 6); // Ma trận nhị phân trên mình chim
+        ctx.fillStyle = "#111"; ctx.fillRect(-7, -5, 16, 5); 
+        ctx.fillStyle = "#000"; ctx.font = "bold 9px Arial"; ctx.fillText("1", -3, 6);
     }
     else {
         ctx.fillStyle = color; ctx.beginPath(); ctx.arc(0, 0, radius, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
@@ -422,7 +428,7 @@ function draw() {
         ctx.fillRect(currentBgX + 180, canvas.height - 160, 60, 115); ctx.fillRect(currentBgX + 270, canvas.height - 240, 80, 195);
     }
 
-    if (gameState === "PLAYING" || gameState === "GAMEOVER") {
+    if (gameState === "PLAYING" || gameState === "GAMEOVER" || gameState === "HACK_MENU") {
         for (let i = 0; i < pipes.length; i++) {
             let p = pipes[i];
             ctx.fillStyle = "#73bf2e"; ctx.strokeStyle = "#000"; ctx.lineWidth = 3;
@@ -445,16 +451,19 @@ function draw() {
     }
 
     function drawButton(btn, text, color = "#e67e22") {
-        ctx.fillStyle = "#000"; ctx.fillRect(btn.x + 2, btn.y + 2, btn.w, btn.h);
-        ctx.fillStyle = color; ctx.strokeStyle = "#000"; ctx.lineWidth = 2.5;
+        ctx.fillStyle = "#000"; ctx.fillRect(btn.x + 3, btn.y + 3, btn.w, btn.h);
+        ctx.fillStyle = color; ctx.strokeStyle = "#000"; ctx.lineWidth = 3;
         ctx.fillRect(btn.x, btn.y, btn.w, btn.h); ctx.strokeRect(btn.x, btn.y, btn.w, btn.h);
-        drawText(text, btn.x + btn.w/2, btn.y + btn.h/2 + 5, "bold 13px 'Courier New'", "#fff");
+        drawText(text, btn.x + btn.w/2, btn.y + btn.h/2 + 6, "bold 14px 'Courier New'", "#fff");
     }
 
-    if (gameState !== "PLAYING") {
-        drawText("🪙 XU: " + coins, 20, 35, "bold 18px 'Courier New'", "#f1c40f", "left");
+    if (gameState !== "PLAYING" && gameState !== "HACK_MENU") {
+        drawText("🪙 XU: " + coins, 20, 40, "bold 18px 'Courier New'", "#f1c40f", "left");
     }
 
     // MAIN_MENU
     if (gameState === "MAIN_MENU") {
         ctx.fillStyle = "rgba(0, 0, 0, 0.2)"; ctx.fillRect(0, 0, canvas.width, canvas.height);
+        drawText("FLAPPY BIRD", canvas.width / 2, 160, "bold 44px 'Courier New'", "#f1c40f");
+        drawText("SHOP & GIFTCODE", canvas.width / 2, 200, "bold 20px 'Courier New'", "#fff");
+        drawText("KỶ LỤC: " + highScore, canvas
