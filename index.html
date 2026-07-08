@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Flappy Bird - Admin Hacker Edition</title>
+    <title>Flappy Bird - Shop & Giftcode Edition</title>
     <style>
         body {
             margin: 0;
@@ -51,11 +51,10 @@ const sounds = {
     jump: () => playTone(400, "square", 0.08),
     score: () => { playTone(600, "sine", 0.05); setTimeout(() => playTone(900, "sine", 0.1), 50); },
     hit: () => playTone(150, "sawtooth", 0.25),
-    buy: () => { playTone(500, "sine", 0.08); setTimeout(() => playTone(700, "sine", 0.2), 80); },
-    hack: () => playTone(800, "sawtooth", 0.1)
+    buy: () => { playTone(500, "sine", 0.08); setTimeout(() => playTone(700, "sine", 0.2), 80); }
 };
 
-// --- CẤU HÌNH VẬT LÝ BIẾN THIÊN ---
+// --- CẤU HÌNH VẬT LÝ ---
 const GRAVITY = 0.24;
 const JUMP = -5.0;
 const PIPE_SPEED = 2.2;
@@ -81,29 +80,45 @@ let shopMessageText = "";
 let bird = { x: 80, y: 250, radius: 13, velocity: 0, angle: 0 };
 let skillCooldown = 0;
 let skillActive = 0;
-let revived = false; 
+let revived = false; // Trạng thái kiểm tra cứu mạng của Đại Bàng Mini
 
-// --- HỆ THỐNG SKIN (TÍCH HỢP CHIM HACKER) ---
+// --- HỆ THỐNG SKIN: COST + CHỈ SỐ + KỸ NĂNG ---
 const SKINS = {
     DEFAULT: {
-        name: "Chim Mặc Định", cost: 0, color: "#f1c40f",
-        speed: 1, jump: 1, fall: 1, ability: "Không có"
+        name: "Chim Mặc Định",
+        cost: 0,
+        color: "#f1c40f",
+        speed: 1,
+        jump: 1,
+        fall: 1,
+        ability: "Không có"
     },
     ANGRY_RED: {
-        name: "Angry Bird Đỏ", cost: 40, color: "#e74c3c",
-        speed: 1.2, jump: 1.2, fall: 0.8, ability: "Lướt xuyên ống 2 giây. Hồi sau 40 giây"
+        name: "Angry Bird Đỏ",
+        cost: 40,
+        color: "#e74c3c",
+        speed: 1.2,
+        jump: 1.2,
+        fall: 0.8,
+        ability: "Lướt xuyên ống 2 giây. Hồi sau 40 giây"
     },
     EAGLE_MINI: {
-        name: "Đại Bàng Mini", cost: 50, color: "#7f8c8d",
-        speed: 1.5, jump: 1.1, fall: 1.2, ability: "Tự động hồi sinh 1 lần khi chết"
+        name: "Đại Bàng Mini",
+        cost: 50,
+        color: "#7f8c8d",
+        speed: 1.5,
+        jump: 1.1,
+        fall: 1.2,
+        ability: "Tự động hồi sinh 1 lần khi chết"
     },
     DARK_NIGHT: {
-        name: "Chim Bóng Tối", cost: 70, color: "#2c3e50",
-        speed: 1.3, jump: 1.2, fall: 0.9, ability: "Bất tử xuyên ống 4 giây. Hồi sau 40 giây"
-    },
-    HACKER_BIRD: {
-        name: "Chim Hacker", cost: 1000, color: "#00ff00",
-        speed: 1, jump: 1, fall: 1, ability: "Bấm SKILL khi chơi để hack chỉ số tối đa 20"
+        name: "Hắc Diều Hâu",
+        cost: 70,
+        color: "#2c3e50",
+        speed: 1.3,
+        jump: 1.2,
+        fall: 0.9,
+        ability: "Bất tử xuyên ống 4 giây. Hồi sau 40 giây"
     }
 };
 
@@ -116,18 +131,7 @@ const BUTTONS = {
     prevSkin: { x: 40, y: 225, w: 40, h: 40 },
     nextSkin: { x: 320, y: 225, w: 40, h: 40 },
     actionSkin: { x: 100, y: 320, w: 200, h: 45 }, 
-    giftcode: { x: 100, y: 440, w: 200, h: 40 },
-    
-    // Nút điều chỉnh trong Menu Hack Mod (Được bố trí cực kỳ cân đối)
-    hackSpeedUp: { x: 275, y: 175, w: 80, h: 35 },
-    hackJumpUp: { x: 275, y: 235, w: 80, h: 35 },
-    hackFallUp: { x: 275, y: 295, w: 80, h: 35 },
-    
-    hackSpeedDown: { x: 45, y: 175, w: 40, h: 35 },
-    hackJumpDown: { x: 45, y: 235, w: 40, h: 35 },
-    hackFallDown: { x: 45, y: 295, w: 40, h: 35 },
-    
-    hackClose: { x: 120, y: 410, w: 160, h: 45 }
+    giftcode: { x: 100, y: 440, w: 200, h: 40 }   
 };
 let shopSelectIndex = 0;
 
@@ -151,7 +155,7 @@ function handleInteraction(clientX, clientY) {
             gameState = "SKIN_SHOP";
         }
     } 
-    // CỬA HÀNG TRANG PHỤC
+    // CỬA HÀNG
     else if (gameState === "SKIN_SHOP") {
         let skinKeys = Object.keys(SKINS);
         let activeKey = skinKeys[shopSelectIndex];
@@ -190,66 +194,36 @@ function handleInteraction(clientX, clientY) {
             }
         }
         else if (checkInBtn(mx, my, BUTTONS.giftcode)) {
-            if (codeUsed) { shopMessageText = "Bạn đã dùng code này rồi!"; return; }
+            if (codeUsed) {
+                shopMessageText = "Bạn đã dùng code này rồi!";
+                return;
+            }
             let inputCode = prompt("Nhập mã Giftcode của bạn tại đây:");
-            if (inputCode !== null && inputCode.trim() === "alibaba210") {
-                coins += 10000; codeUsed = true;
-                localStorage.setItem("fb_coins", coins);
-                localStorage.setItem("fb_codeUsed_alibaba210", "true");
-                sounds.buy(); shopMessageText = "Nhận thành công 10,000 Xu!";
-            } else if (inputCode !== null) {
-                shopMessageText = "Mã Giftcode không chính xác!";
+            if (inputCode !== null) {
+                if (inputCode.trim() === "alibaba210") {
+                    coins += 10000;
+                    codeUsed = true;
+                    localStorage.setItem("fb_coins", coins);
+                    localStorage.setItem("fb_codeUsed_alibaba210", "true");
+                    sounds.buy();
+                    shopMessageText = "Nhận thành công 10,000 Xu!";
+                } else {
+                    shopMessageText = "Mã Giftcode không chính xác!";
+                }
             }
         }
     } 
-    // ĐANG TRONG TRẬN ĐẤU
+    // ĐANG CHƠI
     else if(gameState === "PLAYING"){
-        if((currentSkin === "ANGRY_RED" || currentSkin === "DARK_NIGHT" || currentSkin === "HACKER_BIRD") && checkInBtn(mx, my, BUTTONS.skill)){
-            if(currentSkin === "HACKER_BIRD"){
-                gameState = "HACK_MENU"; // Đóng băng game, mở menu mod
-                sounds.hack();
-            } else {
-                useSkill();
-            }
+        // Chỉ xử lý tương tác nút Skill nếu đang dùng skin chủ động kích hoạt
+        if((currentSkin === "ANGRY_RED" || currentSkin === "DARK_NIGHT") && checkInBtn(mx, my, BUTTONS.skill)){
+            useSkill();
             return;
         }
 
         bird.velocity = JUMP * SKINS[currentSkin].jump;
         sounds.jump();
     } 
-    // MENU HACK GAME (ĐỘC QUYỀN CHIM HACKER)
-    else if(gameState === "HACK_MENU") {
-        let h = SKINS.HACKER_BIRD;
-
-        // Tăng / Giảm tốc độ (Tối thiểu 1, Tối đa 20)
-        if(checkInBtn(mx, my, BUTTONS.hackSpeedUp)){
-            h.speed = Math.min(20, h.speed + 1); sounds.hack();
-        }
-        if(checkInBtn(mx, my, BUTTONS.hackSpeedDown)){
-            h.speed = Math.max(1, h.speed - 1); sounds.hack();
-        }
-
-        // Tăng / Giảm lực bật nhảy (Tối thiểu 1, Tối đa 20)
-        if(checkInBtn(mx, my, BUTTONS.hackJumpUp)){
-            h.jump = Math.min(20, h.jump + 1); sounds.hack();
-        }
-        if(checkInBtn(mx, my, BUTTONS.hackJumpDown)){
-            h.jump = Math.max(1, h.jump - 1); sounds.hack();
-        }
-
-        // Tăng / Giảm trọng lực rơi (Tối thiểu 1, Tối đa 20)
-        if(checkInBtn(mx, my, BUTTONS.hackFallUp)){
-            h.fall = Math.min(20, h.fall + 1); sounds.hack();
-        }
-        if(checkInBtn(mx, my, BUTTONS.hackFallDown)){
-            h.fall = Math.max(1, h.fall - 1); sounds.hack();
-        }
-
-        // Nút Đóng menu để quay lại trận đấu với chỉ số mới áp dụng ngay lập tức
-        if(checkInBtn(mx, my, BUTTONS.hackClose)){
-            gameState = "PLAYING";
-        }
-    }
     // THUA TRẬN
     else if (gameState === "GAMEOVER") {
         gameState = "MAIN_MENU";
@@ -274,73 +248,80 @@ document.addEventListener("keydown", (e) => {
         }
     }
     if (e.code === "ShiftLeft" || e.code === "KeyE") {
-        if (gameState === "PLAYING") {
-            if(currentSkin === "HACKER_BIRD") { gameState = "HACK_MENU"; sounds.hack(); }
-            else { useSkill(); }
-        }
+        if (gameState === "PLAYING") { useSkill(); }
     }
 });
 
 function resetGame() {
     bird = { x: 80, y: 250, radius: 13, velocity: 0, angle: 0 };
-    pipes = []; score = 0; frameCount = 0;
-    skillCooldown = 0; skillActive = 0; revived = false; 
+    pipes = [];
+    score = 0;
+    frameCount = 0;
+
+    skillCooldown = 0;
+    skillActive = 0;
+    revived = false; 
 }
 
+// 4. SỬA & THÊM ÂM THANH KÍCH HOẠT SKILL VÀOuseSkill()
 function useSkill(){
     if(skillCooldown > 0) return;
 
     if(currentSkin === "ANGRY_RED"){
-        skillActive = 120;
-        skillCooldown = 40 * 60;
-        bird.x = 170; // Cơ chế lướt vọt chuẩn xác đã sửa đổi
-        playTone(700, "square", 0.15); 
+        skillActive = 120; // 2 giây bất tử
+        skillCooldown = 40 * 60; // 40 giây hồi
+        playTone(700, "square", 0.15); // Âm thanh kích hoạt đanh, dứt khoát
     }
     else if(currentSkin === "DARK_NIGHT"){
-        skillActive = 240;
-        skillCooldown = 40 * 60;
-        playTone(900, "sine", 0.2); 
+        skillActive = 240; // 4 giây bất tử
+        skillCooldown = 40 * 60; // 40 giây hồi
+        playTone(900, "sine", 0.2); // Âm thanh ma mị, ngân vang hơn
     }
 }
 
+// --- THUẬT TOÁN VA CHẠM ---
 function circleRectCollision(cx, cy, r, rx, ry, rw, rh) {
     let closestX = Math.max(rx, Math.min(cx, rx + rw));
     let closestY = Math.max(ry, Math.min(cy, ry + rh));
-    let dx = cx - closestX; let dy = cy - closestY;
+    let dx = cx - closestX;
+    let dy = cy - closestY;
     return (dx * dx + dy * dy) < (r * r);
 }
 
-function gameLoop() { update(); draw(); requestAnimationFrame(gameLoop); }
+// --- VÒNG LẶP GAME ---
+function gameLoop() {
+    update();
+    draw();
+    requestAnimationFrame(gameLoop);
+}
 
 function update() {
-    if (gameState !== "PLAYING") return; // Khi mở HACK_MENU, game dừng cập nhật hoàn toàn (Đóng băng map)
+    if (gameState !== "PLAYING") return;
     
     if(skillCooldown > 0) skillCooldown--;
     if(skillActive > 0) skillActive--;
     
     let stats = SKINS[currentSkin];
     
-    if (currentSkin === "ANGRY_RED" && bird.x > 80) { bird.x -= 0.8; }
-
-    let currentSpeed = stats.speed;
-    let currentBgSpeed = 0.6;
-    if (currentSkin === "ANGRY_RED" && skillActive > 0) {
-        currentSpeed *= 2.2; currentBgSpeed *= 2.2;
-    }
-    
-    bgX -= currentBgSpeed;
+    bgX -= 0.6;
     if (bgX <= -canvas.width) bgX = 0;
 
     bird.velocity += GRAVITY * stats.fall;
     bird.y += bird.velocity;
     bird.angle = Math.min(Math.PI / 3, Math.max(-Math.PI / 7, bird.velocity * 0.09));
 
+    // Va chạm trần / đất
     if (bird.y + bird.radius >= canvas.height - 45 || bird.y - bird.radius <= 0) {
+        // 2. SỬA LỖI EAGLE_MINI CHẠM ĐẤT: Thêm âm thanh cứu mạng chất lượng cao
         if (currentSkin === "EAGLE_MINI" && !revived) {
-            revived = true; bird.y = 250; bird.velocity = 0; pipes = [];
-            playTone(800, "sine", 0.2);
+            revived = true;
+            bird.y = 250;
+            bird.velocity = 0;
+            pipes = [];
+            playTone(800, "sine", 0.2); // Âm thanh hồi sinh trong trẻo bay bổng
         } else if (skillActive <= 0) { 
-            gameState = "GAMEOVER"; sounds.hit();
+            gameState = "GAMEOVER";
+            sounds.hit();
         }
     }
 
@@ -352,57 +333,74 @@ function update() {
 
     for (let i = 0; i < pipes.length; i++) {
         let p = pipes[i];
-        p.x -= PIPE_SPEED * currentSpeed;
+        p.x -= PIPE_SPEED * stats.speed;
 
         let hitTop = circleRectCollision(bird.x, bird.y, bird.radius, p.x, 0, PIPE_WIDTH, p.topHeight);
         let hitBottom = circleRectCollision(bird.x, bird.y, bird.radius, p.x, p.topHeight + PIPE_GAP, PIPE_WIDTH, canvas.height - (p.topHeight + PIPE_GAP));
 
         if (hitTop || hitBottom) {
             if (skillActive <= 0) {
+                // 2. SỬA LỖI EAGLE_MINI ĐÂM ỐNG: Thêm âm thanh cứu mạng chất lượng cao
                 if (currentSkin === "EAGLE_MINI" && !revived) {
-                    revived = true; bird.y = 250; bird.velocity = 0; pipes = [];
+                    revived = true;
+                    bird.y = 250;
+                    bird.velocity = 0;
+                    pipes = [];
                     playTone(800, "sine", 0.2); 
-                } else {
-                    gameState = "GAMEOVER"; sounds.hit();
+                } 
+                else {
+                    gameState = "GAMEOVER";
+                    sounds.hit();
                 }
             }
         }
 
         if (!p.scored && p.x + PIPE_WIDTH < bird.x - bird.radius) {
-            score++; coins++; p.scored = true; sounds.score();
+            score++;
+            coins++; 
+            p.scored = true;
+            sounds.score();
+
             localStorage.setItem("fb_coins", coins);
-            if (score > highScore) { highScore = score; localStorage.setItem("fb_highScore", highScore); }
+            if (score > highScore) {
+                highScore = score;
+                localStorage.setItem("fb_highScore", highScore);
+            }
         }
     }
+
     pipes = pipes.filter(p => p.x + PIPE_WIDTH > 0);
 }
 
+// --- HÀM VẼ SKIN CHIM ---
 function drawBird(x, y, angle, radius, skinKey) {
-    ctx.save(); ctx.translate(x, y); ctx.rotate(angle); ctx.lineWidth = 2.5; ctx.strokeStyle = "#000";
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(angle);
+    ctx.lineWidth = 2.5;
+    ctx.strokeStyle = "#000";
+
     let color = SKINS[skinKey] ? SKINS[skinKey].color : "#f1c40f";
 
     if (skinKey === "ANGRY_RED") {
-        ctx.fillStyle = color; ctx.beginPath(); ctx.arc(0, 0, radius, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+        ctx.fillStyle = color;
+        ctx.beginPath(); ctx.arc(0, 0, radius, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
         ctx.fillStyle = "#000"; ctx.fillRect(-2, -9, 12, 3.5);
         ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(4, -3, 4, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
         ctx.fillStyle = "#000"; ctx.beginPath(); ctx.arc(5, -3, 1.5, 0, Math.PI * 2); ctx.fill();
         ctx.fillStyle = "#f1c40f"; ctx.beginPath(); ctx.moveTo(8, -1); ctx.lineTo(17, 2); ctx.lineTo(8, 5); ctx.closePath(); ctx.fill(); ctx.stroke();
     } 
     else if (skinKey === "EAGLE_MINI") {
-        ctx.fillStyle = color; ctx.beginPath(); ctx.arc(0, 0, radius, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+        ctx.fillStyle = color;
+        ctx.beginPath(); ctx.arc(0, 0, radius, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
         ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.moveTo(-10, -5); ctx.lineTo(-15, -10); ctx.lineTo(-5, -11); ctx.lineTo(0, -14); ctx.lineTo(5, -10); ctx.closePath(); ctx.fill(); ctx.stroke();
         ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(4, -3, 3.5, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
         ctx.fillStyle = "#000"; ctx.fillRect(2, -7, 4, 1.5); ctx.beginPath(); ctx.arc(4.5, -3, 1.5, 0, Math.PI * 2); ctx.fill();
         ctx.fillStyle = "#f39c12"; ctx.beginPath(); ctx.moveTo(8, -2); ctx.lineTo(16, 2); ctx.lineTo(11, 7); ctx.lineTo(8, 4); ctx.closePath(); ctx.fill(); ctx.stroke();
     } 
-    else if (skinKey === "HACKER_BIRD") {
-        // Vẽ diện mạo chất chơi cho Chim Hacker của bạn với kính đen bảo mật
-        ctx.fillStyle = color; ctx.beginPath(); ctx.arc(0, 0, radius, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-        ctx.fillStyle = "#111"; ctx.fillRect(-7, -5, 16, 5); 
-        ctx.fillStyle = "#000"; ctx.font = "bold 9px Arial"; ctx.fillText("1", -3, 6);
-    }
     else {
-        ctx.fillStyle = color; ctx.beginPath(); ctx.arc(0, 0, radius, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+        ctx.fillStyle = color;
+        ctx.beginPath(); ctx.arc(0, 0, radius, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
         ctx.fillStyle = "#fff"; ctx.beginPath();
         let wingWave = (gameState === "PLAYING") ? Math.sin(frameCount * 0.4) * 3 : 0;
         ctx.ellipse(-5, 2, 7, 5 + wingWave/2, Math.PI/6, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
@@ -413,29 +411,40 @@ function drawBird(x, y, angle, radius, skinKey) {
     ctx.restore();
 }
 
+// --- ĐỒ HỌA TOÀN BỘ GAME ---
 function draw() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
+    // 1. Vẽ nền
     ctx.fillStyle = "#4ec0ca"; ctx.fillRect(0, 0, canvas.width, canvas.height);
     ctx.fillStyle = "#3caab5";
     for (let j = 0; j < 2; j++) {
         let currentBgX = bgX + (j * canvas.width);
-        ctx.fillRect(currentBgX + 10, canvas.height - 180, 50, 135); ctx.fillRect(currentBgX + 80, canvas.height - 220, 70, 175);
-        ctx.fillRect(currentBgX + 180, canvas.height - 160, 60, 115); ctx.fillRect(currentBgX + 270, canvas.height - 240, 80, 195);
+        ctx.fillRect(currentBgX + 10, canvas.height - 180, 50, 135);
+        ctx.fillRect(currentBgX + 80, canvas.height - 220, 70, 175);
+        ctx.fillRect(currentBgX + 180, canvas.height - 160, 60, 115);
+        ctx.fillRect(currentBgX + 270, canvas.height - 240, 80, 195);
     }
 
-    if (gameState === "PLAYING" || gameState === "GAMEOVER" || gameState === "HACK_MENU") {
+    // 2. Vẽ Ống nước
+    if (gameState === "PLAYING" || gameState === "GAMEOVER") {
         for (let i = 0; i < pipes.length; i++) {
             let p = pipes[i];
             ctx.fillStyle = "#73bf2e"; ctx.strokeStyle = "#000"; ctx.lineWidth = 3;
-            ctx.fillRect(p.x, 0, PIPE_WIDTH, p.topHeight); ctx.strokeRect(p.x, -5, PIPE_WIDTH, p.topHeight + 5);
-            ctx.fillRect(p.x - 4, p.topHeight - 24, PIPE_WIDTH + 8, 24); ctx.strokeRect(p.x - 4, p.topHeight - 24, PIPE_WIDTH + 8, 24);
+            ctx.fillRect(p.x, 0, PIPE_WIDTH, p.topHeight);
+            ctx.strokeRect(p.x, -5, PIPE_WIDTH, p.topHeight + 5);
+            ctx.fillRect(p.x - 4, p.topHeight - 24, PIPE_WIDTH + 8, 24);
+            ctx.strokeRect(p.x - 4, p.topHeight - 24, PIPE_WIDTH + 8, 24);
+
             let bY = p.topHeight + PIPE_GAP;
-            ctx.fillRect(p.x, bY, PIPE_WIDTH, canvas.height - bY); ctx.strokeRect(p.x, bY, PIPE_WIDTH, canvas.height - bY + 5);
-            ctx.fillRect(p.x - 4, bY, PIPE_WIDTH + 8, 24); ctx.strokeRect(p.x - 4, bY, PIPE_WIDTH + 8, 24);
+            ctx.fillRect(p.x, bY, PIPE_WIDTH, canvas.height - bY);
+            ctx.strokeRect(p.x, bY, PIPE_WIDTH, canvas.height - bY + 5);
+            ctx.fillRect(p.x - 4, bY, PIPE_WIDTH + 8, 24);
+            ctx.strokeRect(p.x - 4, bY, PIPE_WIDTH + 8, 24);
         }
     }
 
+    // 3. Vẽ Mặt Đất
     ctx.fillStyle = "#ded895"; ctx.fillRect(0, canvas.height - 45, canvas.width, 45);
     ctx.fillStyle = "#54b031"; ctx.fillRect(0, canvas.height - 45, canvas.width, 12);
     ctx.fillStyle = "#000"; ctx.fillRect(0, canvas.height - 45, canvas.width, 3);
@@ -450,10 +459,10 @@ function draw() {
         ctx.fillStyle = "#000"; ctx.fillRect(btn.x + 3, btn.y + 3, btn.w, btn.h);
         ctx.fillStyle = color; ctx.strokeStyle = "#000"; ctx.lineWidth = 3;
         ctx.fillRect(btn.x, btn.y, btn.w, btn.h); ctx.strokeRect(btn.x, btn.y, btn.w, btn.h);
-        drawText(text, btn.x + btn.w/2, btn.y + btn.h/2 + 6, "bold 14px 'Courier New'", "#fff");
+        drawText(text, btn.x + btn.w/2, btn.y + btn.h/2 + 6, "bold 15px 'Courier New'", "#fff");
     }
 
-    if (gameState !== "PLAYING" && gameState !== "HACK_MENU") {
+    if (gameState !== "PLAYING") {
         drawText("🪙 XU: " + coins, 20, 40, "bold 18px 'Courier New'", "#f1c40f", "left");
     }
 
@@ -463,8 +472,10 @@ function draw() {
         drawText("FLAPPY BIRD", canvas.width / 2, 160, "bold 44px 'Courier New'", "#f1c40f");
         drawText("SHOP & GIFTCODE", canvas.width / 2, 200, "bold 20px 'Courier New'", "#fff");
         drawText("KỶ LỤC: " + highScore, canvas.width / 2, 260, "bold 22px 'Courier New'", "#fff");
+
         let demoY = 280 + Math.sin(Date.now() * 0.005) * 10;
         drawBird(canvas.width / 2, demoY, 0, 15, currentSkin);
+
         drawButton(BUTTONS.play, "VÀO CHƠI", "#2ecc71");
         drawButton(BUTTONS.shop, "CỬA HÀNG", "#3498db");
     }
@@ -476,4 +487,52 @@ function draw() {
 
         let skinKeys = Object.keys(SKINS);
         let activeKey = skinKeys[shopSelectIndex];
-      
+        let activeSkin = SKINS[activeKey];
+        let isOwned = ownedSkins.includes(activeKey);
+
+        ctx.fillStyle = "#2c3e50"; ctx.strokeStyle = "#fff"; ctx.lineWidth = 3;
+        ctx.fillRect(100, 130, 200, 105); ctx.strokeRect(100, 130, 200, 105);
+
+        drawBird(canvas.width / 2, 175, 0, 20, activeKey);
+        drawText(activeSkin.name, canvas.width / 2, 250, "bold 16px 'Courier New'", "#fff");
+
+        drawText(
+            "Tốc độ: " + activeSkin.speed + " | Bật: " + activeSkin.jump + " | Rơi: " + activeSkin.fall,
+            canvas.width / 2,
+            275,
+            "bold 12px 'Courier New'",
+            "#54b031"
+        );
+
+        drawText(
+            "KN: " + activeSkin.ability,
+            canvas.width / 2,
+            300,
+            "bold 11px 'Courier New'",
+            "#fff"
+        );
+
+        drawButton(BUTTONS.prevSkin, "<", "#7f8c8d");
+        drawButton(BUTTONS.nextSkin, ">", "#7f8c8d");
+
+        if (isOwned) {
+            let isEquipped = (currentSkin === activeKey);
+            drawButton(BUTTONS.actionSkin, isEquipped ? "ĐANG SỬ DỤNG" : "TRANG BỊ", isEquipped ? "#2ecc71" : "#f39c12");
+        } else {
+            drawButton(BUTTONS.actionSkin, `MUA (${activeSkin.cost} XU)`, "#e67e22");
+        }
+
+        ctx.fillStyle = "rgba(255,255,255,0.08)";
+        ctx.fillRect(40, 395, 320, 105);
+        drawText("--- ĐỔI MÃ PHẦN THƯỞNG ---", canvas.width / 2, 420, "bold 14px 'Courier New'", "#aaa");
+        drawButton(BUTTONS.giftcode, "🎟️ NHẬP GIFTCODE", "#9b59b6");
+
+        if (shopMessageText) {
+            drawText(shopMessageText, canvas.width / 2, 513, "bold 14px 'Courier New'", "#f1c40f");
+        }
+
+        drawButton(BUTTONS.back, "TRỞ VỀ", "#e74c3c");
+    }
+
+    // PLAYING
+   
