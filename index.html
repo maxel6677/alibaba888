@@ -1,385 +1,97 @@
 <!DOCTYPE html>
-<html lang="vi">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Flappy Bird - Deluxe Edition</title>
+    <title>Video Library</title>
     <style>
         body {
+            font-family: Arial;
+            background: #111;
+            color: white;
             margin: 0;
-            background-color: #111;
+            padding: 20px;
+        }
+
+        h1 {
+            text-align: center;
+        }
+
+        .video-list {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 20px;
+        }
+
+        .video-card {
+            background: #222;
+            border-radius: 10px;
+            overflow: hidden;
+            padding-bottom: 10px;
+        }
+
+        .thumbnail {
+            width: 100%;
+            height: 150px;
+            background: #555;
             display: flex;
             justify-content: center;
             align-items: center;
-            height: 100vh;
-            font-family: 'Courier New', Courier, monospace;
-            overflow: hidden;
-            user-select: none;
         }
-        canvas {
-            border: 4px solid #333;
-            box-shadow: 0 12px 36px rgba(0,0,0,0.7);
-            background-color: #4ec0ca;
+
+        .video-card h3 {
+            padding: 0 10px;
+        }
+
+        button {
+            margin-left: 10px;
+            padding: 8px 15px;
+            background: red;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: darkred;
+        }
+
+        @media(max-width:800px){
+            .video-list {
+                grid-template-columns: repeat(2,1fr);
+            }
         }
     </style>
 </head>
+
 <body>
 
-    <canvas id="gameCanvas" width="400" height="600"></canvas>
+<h1>🎬 Kho Video</h1>
+
+<div class="video-list">
 
 <script>
-const canvas = document.getElementById("gameCanvas");
-const ctx = canvas.getContext("2d");
+for(let i = 1; i <= 10; i++){
+    document.write(`
+    <div class="video-card">
+        <div class="thumbnail">
+            Video ${i}
+        </div>
 
-// --- HỆ THỐNG ÂM THANH SẠCH (Web Audio API) ---
-const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-function playTone(freq, type, duration) {
-    try {
-        let osc = audioCtx.createOscillator();
-        let gain = audioCtx.createGain();
-        osc.type = type;
-        osc.frequency.value = freq;
-        gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration);
-        osc.connect(gain);
-        gain.connect(audioCtx.destination);
-        osc.start();
-        osc.stop(audioCtx.currentTime + duration);
-    } catch(e) {}
-}
-const sounds = {
-    jump: () => playTone(400, "square", 0.08),
-    score: () => { playTone(600, "sine", 0.05); setTimeout(() => playTone(900, "sine", 0.1), 50); },
-    hit: () => playTone(150, "sawtooth", 0.25),
-    buy: () => { playTone(500, "sine", 0.08); setTimeout(() => playTone(700, "sine", 0.2), 80); }
-};
+        <h3>Video số ${i}</h3>
 
-// --- CẤU HÌNH VẬT LÝ ---
-const GRAVITY = 0.24;
-const JUMP = -5.0;
-const PIPE_SPEED = 2.2;
-const PIPE_GAP = 135;
-const PIPE_SPAWN_RATE = 90;
-const PIPE_WIDTH = 65;
-
-// --- DỮ LIỆU ĐƯỢC LƯU TRỮ (localStorage) ---
-let highScore = Number(localStorage.getItem("fb_highScore")) || 0;
-let coins = Number(localStorage.getItem("fb_coins")) || 0;
-let currentSkin = localStorage.getItem("fb_currentSkin") || "DEFAULT";
-let ownedSkins = JSON.parse(localStorage.getItem("fb_ownedSkins")) || ["DEFAULT"];
-let codeUsed = localStorage.getItem("fb_codeUsed_alibaba210") === "true";
-
-// --- TRẠNG THÁI GAME ---
-let gameState = "MAIN_MENU"; 
-let score = 0;
-let frameCount = 0;
-let bgX = 0;
-let cloudX = 0; // Tọa độ di chuyển của mây độc lập với nền đất
-let pipes = [];
-let shopMessageText = ""; 
-
-let bird = { x: 80, y: 250, radius: 13, velocity: 0, angle: 0 };
-let skillCooldown = 0;
-let skillActive = 0;
-let revived = false; 
-
-// --- HỆ THỐNG SKIN ---
-const SKINS = {
-    DEFAULT: { name: "Chim", cost: 0, color: "#f1c40f", speed: 1, jump: 1, fall: 1, ability: "Không có" },
-    ANGRY_RED: { name: "Angry Bird", cost: 40, color: "#e74c3c", speed: 1.2, jump: 1.2, fall: 0.8, ability: "Lướt xuyên ống 2 giây. Hồi sau 40 giây" },
-    EAGLE_MINI: { name: "Đại Bàng", cost: 50, color: "#7f8c8d", speed: 1.5, jump: 1.1, fall: 1.2, ability: "Tự động hồi sinh 1 lần khi chết" },
-    DARK_NIGHT: { name: "Chim Bóng Tối", cost: 70, color: "#2c3e50", speed: 1.3, jump: 1.2, fall: 0.9, ability: "Bất tử xuyên ống 4 giây. Hồi sau 40 giây" }
-};
-
-const BUTTONS = {
-    skill: { x: 260, y: 500, w: 110, h: 45 },
-    play: { x: 70, y: 340, w: 110, h: 45 },
-    shop: { x: 220, y: 340, w: 110, h: 45 },
-    back: { x: 130, y: 520, w: 140, h: 40 },
-    prevSkin: { x: 40, y: 225, w: 40, h: 40 },
-    nextSkin: { x: 320, y: 225, w: 40, h: 40 },
-    actionSkin: { x: 100, y: 320, w: 200, h: 45 }, 
-    giftcode: { x: 100, y: 440, w: 200, h: 40 }   
-};
-let shopSelectIndex = 0;
-
-// --- MẢNG LƯU TỌA ĐỘ CỐ ĐỊNH CỦA MÂY ---
-const CLOUDS = [
-    { x: 40, y: 80, scale: 0.9 },
-    { x: 180, y: 50, scale: 1.2 },
-    { x: 320, y: 110, scale: 0.8 },
-    { x: 480, y: 70, scale: 1.1 }
-];
-
-function handleInteraction(clientX, clientY) {
-    if (audioCtx.state === 'suspended') audioCtx.resume();
-    const rect = canvas.getBoundingClientRect();
-    const mx = (clientX - rect.left) * (canvas.width / rect.width);
-    const my = (clientY - rect.top) * (canvas.height / rect.height);
-
-    if (gameState === "MAIN_MENU") {
-        if (checkInBtn(mx, my, BUTTONS.play)) { resetGame(); gameState = "PLAYING"; }
-        else if (checkInBtn(mx, my, BUTTONS.shop)) { shopMessageText = ""; shopSelectIndex = Object.keys(SKINS).indexOf(currentSkin); if (shopSelectIndex === -1) shopSelectIndex = 0; gameState = "SKIN_SHOP"; }
-    } else if (gameState === "SKIN_SHOP") {
-        let skinKeys = Object.keys(SKINS); let activeKey = skinKeys[shopSelectIndex]; let isOwned = ownedSkins.includes(activeKey);
-        if (checkInBtn(mx, my, BUTTONS.back)) { gameState = "MAIN_MENU"; }
-        else if (checkInBtn(mx, my, BUTTONS.prevSkin)) { shopSelectIndex = (shopSelectIndex - 1 + skinKeys.length) % skinKeys.length; shopMessageText = ""; }
-        else if (checkInBtn(mx, my, BUTTONS.nextSkin)) { shopSelectIndex = (shopSelectIndex + 1) % skinKeys.length; shopMessageText = ""; }
-        else if (checkInBtn(mx, my, BUTTONS.actionSkin)) {
-            if (isOwned) { currentSkin = activeKey; localStorage.setItem("fb_currentSkin", currentSkin); shopMessageText = "Đã trang bị thành công!"; }
-            else {
-                if (coins >= SKINS[activeKey].cost) {
-                    coins -= SKINS[activeKey].cost; ownedSkins.push(activeKey); currentSkin = activeKey;
-                    localStorage.setItem("fb_coins", coins); localStorage.setItem("fb_ownedSkins", JSON.stringify(ownedSkins)); localStorage.setItem("fb_currentSkin", currentSkin);
-                    sounds.buy(); shopMessageText = "Mua thành công & Đã trang bị!";
-                } else { shopMessageText = "Không đủ tiền! Cần " + SKINS[activeKey].cost + " Xu."; }
-            }
-        } else if (checkInBtn(mx, my, BUTTONS.giftcode)) {
-            if (codeUsed) { shopMessageText = "Bạn đã dùng code này rồi!"; return; }
-            let inputCode = prompt("Nhập mã Giftcode của bạn tại đây:");
-            if (inputCode !== null && inputCode.trim() === "alibaba210") {
-                coins += 10000; codeUsed = true; localStorage.setItem("fb_coins", coins); localStorage.setItem("fb_codeUsed_alibaba210", "true"); sounds.buy(); shopMessageText = "Nhận thành công 10,000 Xu!";
-            } else if (inputCode !== null) { shopMessageText = "Mã Giftcode không chính xác!"; }
-        }
-    } else if(gameState === "PLAYING"){
-        if((currentSkin === "ANGRY_RED" || currentSkin === "DARK_NIGHT") && checkInBtn(mx, my, BUTTONS.skill)){ useSkill(); return; }
-        bird.velocity = JUMP * SKINS[currentSkin].jump; sounds.jump();
-    } else if (gameState === "GAMEOVER") { gameState = "MAIN_MENU"; }
+        <button onclick="watch(${i})">
+            Xem
+        </button>
+    </div>
+    `);
 }
 
-function checkInBtn(mx, my, btn) { return mx >= btn.x && mx <= btn.x + btn.w && my >= btn.y && my <= btn.y + btn.h; }
-
-canvas.addEventListener("mousedown", (e) => handleInteraction(e.clientX, e.clientY));
-canvas.addEventListener("touchstart", (e) => { e.preventDefault(); handleInteraction(e.touches[0].clientX, e.touches[0].clientY); }, { passive: false });
-
-document.addEventListener("keydown", (e) => {
-    if (e.code === "Space" || e.code === "ArrowUp") { e.preventDefault(); if (gameState === "PLAYING") { bird.velocity = JUMP * SKINS[currentSkin].jump; sounds.jump(); } }
-    if (e.code === "ShiftLeft" || e.code === "KeyE") { e.preventDefault(); if (gameState === "PLAYING") { useSkill(); } }
-});
-
-function resetGame() {
-    bird = { x: 80, y: 250, radius: 13, velocity: 0, angle: 0 }; pipes = []; score = 0; frameCount = 0; skillCooldown = 0; skillActive = 0; revived = false; 
+function watch(id){
+    alert("Đang mở video " + id);
 }
+</script>
 
-function useSkill(){
-    if(skillCooldown > 0 || skillActive > 0) return;
-    if(currentSkin === "ANGRY_RED"){ skillActive = 120; skillCooldown = 40 * 60; playTone(700, "square", 0.15); }
-    else if(currentSkin === "DARK_NIGHT"){ skillActive = 240; skillCooldown = 40 * 60; playTone(900, "sine", 0.2); }
-}
+</div>
 
-function circleRectCollision(cx, cy, r, rx, ry, rw, rh) {
-    let closestX = Math.max(rx, Math.min(cx, rx + rw)); let closestY = Math.max(ry, Math.min(cy, ry + rh));
-    let dx = cx - closestX; let dy = cy - closestY; return (dx * dx + dy * dy) < (r * r);
-}
-
-function gameLoop() { update(); draw(); requestAnimationFrame(gameLoop); }
-
-function update() {
-    // Kể cả lúc ở sảnh chờ, mây và nền vẫn di chuyển cho sinh động
-    cloudX -= 0.2; // Mây trôi chậm hơn tạo hiệu ứng xa gần (Parallax)
-    if (cloudX <= -400) cloudX = 0;
-
-    bgX -= 0.6;
-    if (bgX <= -canvas.width) bgX = 0;
-
-    if (gameState !== "PLAYING") return;
-
-    if(skillCooldown > 0) skillCooldown--;
-    if(skillActive > 0) skillActive--;
-
-    let stats = SKINS[currentSkin];
-    bird.velocity += GRAVITY * stats.fall;
-    bird.y += bird.velocity;
-    bird.angle = Math.min(Math.PI / 3, Math.max(-Math.PI / 7, bird.velocity * 0.09));
-
-    if (bird.y + bird.radius >= canvas.height - 45 || bird.y - bird.radius <= 0) {
-        if (currentSkin === "EAGLE_MINI" && !revived) { revived = true; bird.y = 250; bird.velocity = 0; pipes = []; playTone(800, "sine", 0.2); } 
-        else if (skillActive <= 0) { gameState = "GAMEOVER"; sounds.hit(); }
-    }
-
-    frameCount++;
-    if (frameCount % PIPE_SPAWN_RATE === 0) {
-        let topHeight = Math.floor(Math.random() * (canvas.height - PIPE_GAP - 160)) + 60;
-        pipes.push({ x: canvas.width, topHeight: topHeight, scored: false });
-    }
-
-    for (let i = 0; i < pipes.length; i++) {
-        let p = pipes[i]; p.x -= PIPE_SPEED * stats.speed;
-        let hitTop = circleRectCollision(bird.x, bird.y, bird.radius, p.x, 0, PIPE_WIDTH, p.topHeight);
-        let hitBottom = circleRectCollision(bird.x, bird.y, bird.radius, p.x, p.topHeight + PIPE_GAP, PIPE_WIDTH, canvas.height - (p.topHeight + PIPE_GAP));
-
-        if ((hitTop || hitBottom) && skillActive <= 0) {
-            if (currentSkin === "EAGLE_MINI" && !revived) { revived = true; bird.y = 250; bird.velocity = 0; pipes = []; playTone(800, "sine", 0.2); } 
-            else { gameState = "GAMEOVER"; sounds.hit(); }
-        }
-
-        if (!p.scored && p.x + PIPE_WIDTH < bird.x - bird.radius) {
-            score++; coins++; p.scored = true; sounds.score();
-            localStorage.setItem("fb_coins", coins);
-            if (score > highScore) { highScore = score; localStorage.setItem("fb_highScore", highScore); }
-        }
-    }
-    pipes = pipes.filter(p => p.x + PIPE_WIDTH > 0);
-}
-
-// --- HÀM VẼ MÂY TỰ NHIÊN ---
-function drawCloud(x, y, scale) {
-    ctx.save();
-    ctx.fillStyle = "rgba(255, 255, 255, 0.85)";
-    ctx.beginPath();
-    ctx.arc(x, y, 18 * scale, 0, Math.PI * 2);
-    ctx.arc(x + 15 * scale, y - 10 * scale, 22 * scale, 0, Math.PI * 2);
-    ctx.arc(x + 35 * scale, y, 15 * scale, 0, Math.PI * 2);
-    ctx.arc(x + 18 * scale, y + 10 * scale, 15 * scale, 0, Math.PI * 2);
-    ctx.closePath();
-    ctx.fill();
-    ctx.restore();
-}
-
-function drawBird(x, y, angle, radius, skinKey) {
-    ctx.save(); ctx.translate(x, y); ctx.rotate(angle); ctx.lineWidth = 2.5; ctx.strokeStyle = "#000";
-    let color = SKINS[skinKey] ? SKINS[skinKey].color : "#f1c40f";
-    if (skinKey === "ANGRY_RED") {
-        ctx.fillStyle = color; ctx.beginPath(); ctx.arc(0, 0, radius, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-        ctx.fillStyle = "#000"; ctx.fillRect(-2, -9, 12, 3.5); ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(4, -3, 4, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-        ctx.fillStyle = "#000"; ctx.beginPath(); ctx.arc(5, -3, 1.5, 0, Math.PI * 2); ctx.fill();
-        ctx.fillStyle = "#f1c40f"; ctx.beginPath(); ctx.moveTo(8, -1); ctx.lineTo(17, 2); ctx.lineTo(8, 5); ctx.closePath(); ctx.fill(); ctx.stroke();
-    } else if (skinKey === "EAGLE_MINI") {
-        ctx.fillStyle = color; ctx.beginPath(); ctx.arc(0, 0, radius, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-        ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.moveTo(-10, -5); ctx.lineTo(-15, -10); ctx.lineTo(-5, -11); ctx.lineTo(0, -14); ctx.lineTo(5, -10); ctx.closePath(); ctx.fill(); ctx.stroke();
-        ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(4, -3, 3.5, 0, Math.PI * 2); ctx.fill(); ctx.stroke(); ctx.fillStyle = "#000"; ctx.fillRect(2, -7, 4, 1.5); ctx.beginPath(); ctx.arc(4.5, -3, 1.5, 0, Math.PI * 2); ctx.fill();
-        ctx.fillStyle = "#f39c12"; ctx.beginPath(); ctx.moveTo(8, -2); ctx.lineTo(16, 2); ctx.lineTo(11, 7); ctx.lineTo(8, 4); ctx.closePath(); ctx.fill(); ctx.stroke();
-    } else {
-        ctx.fillStyle = color; ctx.beginPath(); ctx.arc(0, 0, radius, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-        ctx.fillStyle = "#fff"; ctx.beginPath(); let wingWave = (gameState === "PLAYING") ? Math.sin(frameCount * 0.4) * 3 : 0;
-        ctx.ellipse(-5, 2, 7, 5 + wingWave/2, Math.PI/6, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-        ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(5, -4, 5, 0, Math.PI * 2); ctx.fill(); ctx.stroke(); ctx.fillStyle = "#000"; ctx.beginPath(); ctx.arc(6.5, -4, 1.8, 0, Math.PI * 2); ctx.fill();
-        ctx.fillStyle = "#e67e22"; ctx.beginPath(); ctx.moveTo(11, -3); ctx.lineTo(20, 1); ctx.lineTo(11, 5); ctx.closePath(); ctx.fill(); ctx.stroke();
-    }
-    ctx.restore();
-}
-
-function draw() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    // 1. Bầu trời nền
-    ctx.fillStyle = "#4ec0ca"; ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-    // --- THÊM MẶT TRỜI RETRO ---
-    ctx.save();
-    let sunGradient = ctx.createRadialGradient(320, 80, 5, 320, 80, 35);
-    sunGradient.addColorStop(0, "#fffde7");
-    sunGradient.addColorStop(0.4, "#ffeb3b");
-    sunGradient.addColorStop(1, "rgba(255, 235, 59, 0)");
-    ctx.fillStyle = sunGradient;
-    ctx.beginPath(); ctx.arc(320, 80, 40, 0, Math.PI * 2); ctx.fill();
-    ctx.restore();
-
-    // --- THÊM MÂY DI CHUYỂN PARALLAX ---
-    for (let i = 0; i < CLOUDS.length; i++) {
-        let c = CLOUDS[i];
-        let finalX = c.x + cloudX;
-        if (finalX + 60 < 0) finalX += 500; // Lặp lại khi đi hết màn hình trái
-        drawCloud(finalX, c.y, c.scale);
-        drawCloud(finalX - 450, c.y, c.scale); // Đệm vòng lặp mượt
-    }
-
-    // 2. Các khối nhà/vách núi phía sau nền đất
-    ctx.fillStyle = "#3caab5";
-    for (let j = 0; j < 2; j++) {
-        let currentBgX = bgX + (j * canvas.width);
-        ctx.fillRect(currentBgX + 10, canvas.height - 180, 50, 135);
-        ctx.fillRect(currentBgX + 80, canvas.height - 220, 70, 175);
-        ctx.fillRect(currentBgX + 180, canvas.height - 160, 60, 115);
-        ctx.fillRect(currentBgX + 270, canvas.height - 240, 80, 195);
-    }
-
-    // 3. Vẽ Ống nước + HIỆU ỨNG ĐỔ BÓNG (Shadow)
-    if (gameState === "PLAYING" || gameState === "GAMEOVER") {
-        for (let i = 0; i < pipes.length; i++) {
-            let p = pipes[i];
-            
-            ctx.save();
-            // Cài đặt đổ bóng cho ống nước (Lệch nhẹ sang phải và xuống dưới)
-            ctx.shadowColor = "rgba(0, 0, 0, 0.25)";
-            ctx.shadowBlur = 8;
-            ctx.shadowOffsetX = 6;
-            ctx.shadowOffsetY = 6;
-
-            ctx.fillStyle = "#73bf2e"; ctx.strokeStyle = "#000"; ctx.lineWidth = 3;
-            // Ống trên
-            ctx.fillRect(p.x, 0, PIPE_WIDTH, p.topHeight);
-            ctx.strokeRect(p.x, -5, PIPE_WIDTH, p.topHeight + 5);
-            ctx.fillRect(p.x - 4, p.topHeight - 24, PIPE_WIDTH + 8, 24);
-            ctx.strokeRect(p.x - 4, p.topHeight - 24, PIPE_WIDTH + 8, 24);
-
-            // Ống dưới
-            let bY = p.topHeight + PIPE_GAP;
-            ctx.fillRect(p.x, bY, PIPE_WIDTH, canvas.height - bY);
-            ctx.strokeRect(p.x, bY, PIPE_WIDTH, canvas.height - bY + 5);
-            ctx.fillRect(p.x - 4, bY, PIPE_WIDTH + 8, 24);
-            ctx.strokeRect(p.x - 4, bY, PIPE_WIDTH + 8, 24);
-            
-            ctx.restore(); // Khôi phục để hiệu ứng đổ bóng không đè lên các vật thể khác
-        }
-    }
-
-    // 4. Mặt Đất
-    ctx.fillStyle = "#ded895"; ctx.fillRect(0, canvas.height - 45, canvas.width, 45);
-    ctx.fillStyle = "#54b031"; ctx.fillRect(0, canvas.height - 45, canvas.width, 12);
-    ctx.fillStyle = "#000"; ctx.fillRect(0, canvas.height - 45, canvas.width, 3);
-
-    function drawText(text, x, y, font, color = "#fff", align = "center") {
-        ctx.font = font; ctx.textAlign = align;
-        ctx.fillStyle = "#000"; ctx.fillText(text, x + 2, y + 2);
-        ctx.fillStyle = color; ctx.fillText(text, x, y);
-    }
-
-    function drawButton(btn, text, color = "#e67e22") {
-        ctx.fillStyle = "#000"; ctx.fillRect(btn.x + 3, btn.y + 3, btn.w, btn.h);
-        ctx.fillStyle = color; ctx.strokeStyle = "#000"; ctx.lineWidth = 3;
-        ctx.fillRect(btn.x, btn.y, btn.w, btn.h); ctx.strokeRect(btn.x, btn.y, btn.w, btn.h);
-        drawText(text, btn.x + btn.w/2, btn.y + btn.h/2 + 6, "bold 15px 'Courier New'", "#fff");
-    }
-
-    if (gameState !== "PLAYING") {
-        drawText("🪙 XU: " + coins, 20, 40, "bold 18px 'Courier New'", "#f1c40f", "left");
-    }
-
-    if (gameState === "MAIN_MENU") {
-        ctx.fillStyle = "rgba(0, 0, 0, 0.2)"; ctx.fillRect(0, 0, canvas.width, canvas.height);
-        drawText("FLAPPY BIRD", canvas.width / 2, 160, "bold 44px 'Courier New'", "#f1c40f");
-        drawText("SHOP & GIFTCODE", canvas.width / 2, 200, "bold 20px 'Courier New'", "#fff");
-        drawText("KỶ LỤC: " + highScore, canvas.width / 2, 260, "bold 22px 'Courier New'", "#fff");
-        let demoY = 280 + Math.sin(Date.now() * 0.005) * 10;
-        drawBird(canvas.width / 2, demoY, 0, 15, currentSkin);
-        drawButton(BUTTONS.play, "VÀO CHƠI", "#2ecc71");
-        drawButton(BUTTONS.shop, "CỬA HÀNG", "#3498db");
-    }
-    else if (gameState === "SKIN_SHOP") {
-        ctx.fillStyle = "rgba(0, 0, 0, 0.5)"; ctx.fillRect(0, 0, canvas.width, canvas.height);
-        drawText("CỬA HÀNG TRANG PHỤC", canvas.width / 2, 90, "bold 26px 'Courier New'", "#3498db");
-        let skinKeys = Object.keys(SKINS); let activeKey = skinKeys[shopSelectIndex]; let activeSkin = SKINS[activeKey]; let isOwned = ownedSkins.includes(activeKey);
-        ctx.fillStyle = "#2c3e50"; ctx.strokeStyle = "#fff"; ctx.lineWidth = 3;
-        ctx.fillRect(100, 130, 200, 105); ctx.strokeRect(100, 130, 200, 105);
-        drawBird(canvas.width / 2, 175, 0, 20, activeKey);
-        drawText(activeSkin.name, canvas.width / 2, 250, "bold 16px 'Courier New'", "#fff");
-        drawText("Tốc độ: " + activeSkin.speed + " | Bật: " + activeSkin.jump + " | Rơi: " + activeSkin.fall, canvas.width / 2, 275, "bold 12px 'Courier New'", "#54b031");
-        drawText("KN: " + activeSkin.ability, canvas.width / 2, 300, "bold 11px 'Courier New'", "#fff");
-        drawButton(BUTTONS.prevSkin, "<", "#7f8c8d"); drawButton(BUTTONS.nextSkin, ">", "#7f8c8d");
-        if (isOwned) { let isEquipped = (currentSkin === activeKey); drawButton(BUTTONS.actionSkin, isEquipped ? "ĐANG SỬ DỤNG" : "TRANG BỊ", isEquipped ? "#2ecc71" : "#f39c12"); } 
-        else { drawButton(BUTTONS.actionSkin, `MUA (${activeSkin.cost} XU)`, "#e67e22"); }
-        ctx.fillStyle = "rgba(255,255,255,0.08)"; ctx.fillRect(40, 395, 320, 105);
-        drawText("--- ĐỔI MÃ PHẦN THƯỞNG ---", canvas.width / 2, 420, "bold 14px 'Courier New'", "#aaa");
-        drawButton(BUTTONS.giftcode, "🎟️ NHẬP GIFTCODE", "#9b59b6");
-        if (shopMessageText) { drawText(shopMessageText, canvas.width / 2, 513, "bold 14px 'Courier New'", "#f1c40f"); }
-        drawButton(BUTTONS.back, "TRỞ VỀ", "#e74c3c");
-    }
-    else if (gameState === "PLAYING") {
-        drawBird(bird.x, bird.y, bird.angle, bird.radius, currentSkin);
-        if(skillActive > 0){
-            ctx.beginPath(); ctx.arc(bird.x, bird.y, bird.radius + 10, 0, Math.PI * 2); ctx.strokeStyle = "#9b59b6"; ctx.lineWidth = 4; ctx.stroke();
-        }
-        drawText(score, canvas.width / 2, 70, "bold 45px 'Courier New'");
-        if(currentSkin === "ANGRY_RED" || currentSkin === "DARK_NIGHT"){
-            let text = "SKILL"; let btnColor = "#9b59b
+</body>
+</html>
