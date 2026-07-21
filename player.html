@@ -1,58 +1,94 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Xem video</title>
+    <title>Xem Video</title>
 
     <style>
         body {
-            background:#111;
-            color:white;
-            font-family:Arial;
-            text-align:center;
-            padding:20px;
+            font-family: Arial, sans-serif;
+            background: #111;
+            color: white;
+            text-align: center;
+            padding: 20px;
+        }
+
+        h1 {
+            margin-bottom: 20px;
         }
 
         video {
-            width:80%;
-            max-width:900px;
-            border-radius:10px;
+            width: 80%;
+            max-width: 900px;
+            border-radius: 10px;
+            background: black;
         }
 
         a {
-            color:white;
+            display: inline-block;
+            margin-top: 20px;
+            color: white;
+            text-decoration: none;
+            background: #333;
+            padding: 10px 20px;
+            border-radius: 5px;
+        }
+
+        a:hover {
+            background: #555;
         }
     </style>
+
 </head>
+
 
 <body>
 
-<h1 id="title">Video</h1>
+
+<h1 id="videoTitle">
+    Đang tải...
+</h1>
+
 
 <video controls id="videoPlayer">
-    <source id="source" type="video/mp4">
+
+    <source id="videoSource" type="video/mp4">
+
+    Trình duyệt không hỗ trợ video.
+
 </video>
 
-<br><br>
 
-<a href="index.html">⬅ Quay lại</a>
+<br>
+
+
+<a href="index.html">
+    ⬅ Quay lại
+</a>
+
 
 
 <script>
 
+
+// Lấy số video từ đường dẫn
 let params = new URLSearchParams(window.location.search);
 
 let id = params.get("id");
 
-document.getElementById("title").innerHTML =
+
+// Đổi tiêu đề
+document.getElementById("videoTitle").innerHTML =
 "Video số " + id;
 
 
-// Đường dẫn video
-document.getElementById("source").src =
+// Gắn video
+document.getElementById("videoSource").src =
 "videos/video" + id + ".mp4";
 
 
+// Cập nhật trình phát
 document.getElementById("videoPlayer").load();
+
 
 </script>
 
