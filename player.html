@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Xem video</title>
+
+    <style>
+        body {
+            background:#111;
+            color:white;
+            font-family:Arial;
+            text-align:center;
+            padding:20px;
+        }
+
+        video {
+            width:80%;
+            max-width:900px;
+            border-radius:10px;
+        }
+
+        a {
+            color:white;
+        }
+    </style>
+</head>
+
+<body>
+
+<h1 id="title">Video</h1>
+
+<video controls id="videoPlayer">
+    <source id="source" type="video/mp4">
+</video>
+
+<br><br>
+
+<a href="index.html">⬅ Quay lại</a>
+
+
+<script>
+
+let params = new URLSearchParams(window.location.search);
+
+let id = params.get("id");
+
+document.getElementById("title").innerHTML =
+"Video số " + id;
+
+
+// Đường dẫn video
+document.getElementById("source").src =
+"videos/video" + id + ".mp4";
+
+
+document.getElementById("videoPlayer").load();
+
+</script>
+
+
+</body>
+</html>
